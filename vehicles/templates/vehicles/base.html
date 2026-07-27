@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}Vehicle Market Intel{% endblock %}</title>
+    <style>
+        :root { color-scheme: light; font-family: system-ui, sans-serif; color: #17202a; background: #f4f6f8; }
+        * { box-sizing: border-box; }
+        body { margin: 0; }
+        header { background: #14213d; color: white; }
+        nav, main { width: min(1180px, calc(100% - 2rem)); margin: auto; }
+        nav { min-height: 64px; display: flex; align-items: center; gap: 1.25rem; flex-wrap: wrap; }
+        nav strong { margin-right: auto; }
+        nav a { color: white; text-decoration: none; }
+        main { padding: 2rem 0 4rem; }
+        h1, h2 { line-height: 1.2; }
+        a { color: #1358a2; }
+        .panel, .card { background: white; border: 1px solid #dce1e6; border-radius: .55rem; padding: 1rem; }
+        .filters { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .8rem; }
+        label { display: grid; gap: .3rem; font-size: .9rem; font-weight: 600; }
+        input, select, button { width: 100%; padding: .6rem; border: 1px solid #aeb7c2; border-radius: .35rem; background: white; font: inherit; }
+        button, .button { background: #1769aa; color: white; border: 0; cursor: pointer; text-decoration: none; display: inline-block; padding: .65rem 1rem; border-radius: .35rem; width: auto; }
+        .actions { display: flex; align-items: end; gap: .6rem; }
+        .grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; margin-top: 1rem; }
+        .meta { color: #58636f; }
+        .price { font-size: 1.35rem; font-weight: 700; }
+        .stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .8rem; }
+        .stat { padding: .8rem; background: #f7f9fb; border-radius: .4rem; }
+        .stat span { display: block; color: #58636f; font-size: .85rem; }
+        .table-wrap { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; background: white; }
+        th, td { text-align: left; padding: .7rem; border-bottom: 1px solid #dce1e6; white-space: nowrap; }
+        .pagination { display: flex; justify-content: center; align-items: center; gap: 1rem; margin-top: 1.5rem; }
+        .errors { color: #8b1e1e; background: #fff0f0; padding: .8rem 1rem; border-radius: .4rem; }
+        .section { margin-top: 2rem; }
+        @media (max-width: 850px) { .filters, .grid, .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+        @media (max-width: 560px) { nav strong { width: 100%; margin-top: .8rem; } .filters, .grid, .stats { grid-template-columns: 1fr; } main { padding-top: 1rem; } }
+    </style>
+</head>
+<body>
+    <header>
+        <nav>
+            <strong><a href="{% url 'home' %}">Vehicle Market Intel</a></strong>
+            <a href="{% url 'market:listing_list' %}">Marketplace listings</a>
+            <a href="{% url 'vehicles:vehicle_list' %}">Manual vehicles</a>
+        </nav>
+    </header>
+    <main>{% block content %}{% endblock %}</main>
+</body>
+</html>

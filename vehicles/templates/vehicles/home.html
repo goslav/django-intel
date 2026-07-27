@@ -1,0 +1,30 @@
+{% extends "vehicles/base.html" %}
+
+{% block title %}Home | Vehicle Market Intel{% endblock %}
+
+{% block content %}
+<section class="panel">
+    <h1>Serbian used-car market intelligence</h1>
+    <p class="meta">Review marketplace asking prices, compare similar vehicles, and keep manually evaluated purchase opportunities in one place.</p>
+</section>
+
+<div class="grid section">
+    <article class="card">
+        <h2>Marketplace listings</h2>
+        <div class="price">{{ active_listing_count }} active</div>
+        <p>Browse imported advertisements, filter the market, and inspect comparable asking prices and price history.</p>
+        <a class="button" href="{% url 'market:listing_list' %}">Browse marketplace</a>
+    </article>
+    <article class="card">
+        <h2>Manual vehicles</h2>
+        <div class="price">{{ vehicle_count }} saved</div>
+        <p>Review purchase opportunities entered manually for dealer evaluation.</p>
+        <a class="button" href="{% url 'vehicles:vehicle_list' %}">View manual vehicles</a>
+    </article>
+    <article class="card">
+        <h2>Data administration</h2>
+        <p>Inspect listings, import runs, observations, and manually entered vehicles through Django administration.</p>
+        <a class="button" href="{% url 'admin:index' %}">Open admin</a>
+    </article>
+</div>
+{% endblock %}
