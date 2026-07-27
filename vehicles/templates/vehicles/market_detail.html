@@ -1,0 +1,62 @@
+{% extends "vehicles/base.html" %}
+
+{% block title %}{{ listing.title|default:listing.make }} | Vehicle Market Intel{% endblock %}
+
+{% block content %}
+<p><a href="{% url 'market:listing_list' %}">← Back to marketplace listings</a></p>
+<section class="panel">
+    <h1>{{ listing.title|default:listing.make }}{% if not listing.title %} {{ listing.model }}{% endif %}</h1>
+    {% if listing.latest_price != None %}<div class="price">€{{ listing.latest_price|floatformat:2 }} asking price</div>{% else %}<div class="price">No observed price</div>{% endif %}
+    <p>{{ listing.year }} · {{ listing.mileage }} km · {{ listing.fuel }}{% if listing.transmission %} · {{ listing.transmission }}{% endif %}</p>
+    <p class="meta">Source: {{ listing.source }} · Last seen {{ listing.last_seen_at|date:"j M Y, H:i" }}</p>
+    {% if listing.source_url %}<a class="button" href="{{ listing.source_url }}" target="_blank" rel="noopener">Open original listing</a>{% endif %}
+</section>
+
+<section class="section">
+    <h2>Comparable listings</h2>
+    <p class="meta">Same make, model, and fuel; year and mileage within the selected tolerances. Only active advertisements with a current asking price are included.</p>
+    {% if tolerance_errors %}<div class="errors">{% for error in tolerance_errors %}<div>{{ error }}</div>{% endfor %}</div>{% endif %}
+    <form method="get" class="panel filters">
+        <label>Year tolerance (maximum 5)<input type="number" name="year_tolerance" min="0" max="5" value="{{ year_tolerance }}"></label>
+        <label>Mileage tolerance in km (maximum 200,000)<input type="number" name="mileage_tolerance" min="0" max="200000" value="{{ mileage_tolerance }}"></label>
+        <label><span>Transmission</span><span><input style="width:auto" type="checkbox" name="same_transmission" value="1" {% if same_transmission %}checked{% endif %}> Require same transmission</span></label>
+        <div class="actions"><button type="submit">Update comparison</button></div>
+    </form>
+
+    {% if summary %}
+    <p><strong>Asking-price statistics</strong> — these are advertised prices, not confirmed sale prices.</p>
+    <div class="stats">
+        <div class="stat"><span>Comparable listings</span><strong>{{ summary.count }}</strong></div>
+        <div class="stat"><span>Lowest asking price</span><strong>€{{ summary.minimum|floatformat:2 }}</strong></div>
+        <div class="stat"><span>Highest asking price</span><strong>€{{ summary.maximum|floatformat:2 }}</strong></div>
+        <div class="stat"><span>Average asking price</span><strong>€{{ summary.average|floatformat:2 }}</strong></div>
+        <div class="stat"><span>Median asking price</span><strong>€{{ summary.median|floatformat:2 }}</strong></div>
+        <div class="stat"><span>Selected vs median</span>{% if summary.selected_difference != None %}<strong>€{{ summary.selected_difference|floatformat:2 }}{% if summary.selected_difference_percentage != None %} ({{ summary.selected_difference_percentage|floatformat:2 }}%){% endif %}</strong>{% else %}<strong>Unavailable</strong>{% endif %}</div>
+    </div>
+    <div class="table-wrap panel section">
+        <table>
+            <thead><tr><th>Listing</th><th>Year</th><th>Mileage</th><th>Transmission</th><th>Latest asking price</th><th>Observed</th></tr></thead>
+            <tbody>{% for comparable in comparables %}<tr><td><a href="{% url 'market:listing_detail' comparable.pk %}">{{ comparable.title|default:comparable.make }}{% if not comparable.title %} {{ comparable.model }}{% endif %}</a></td><td>{{ comparable.year }}</td><td>{{ comparable.mileage }} km</td><td>{{ comparable.transmission|default:"—" }}</td><td>€{{ comparable.latest_price|floatformat:2 }}</td><td>{{ comparable.latest_observed_at|date:"j M Y" }}</td></tr>{% endfor %}</tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="panel">No comparable active listings match the current criteria. Asking-price statistics are unavailable.</div>
+    {% endif %}
+</section>
+
+<section class="section">
+    <h2>Price history</h2>
+    {% if history %}
+    <div class="table-wrap panel">
+        <table>
+            <thead><tr><th>Observed</th><th>Asking price</th><th>Mileage</th><th>Import run</th><th>Change</th></tr></thead>
+            <tbody>
+            {% for item in history %}
+                <tr><td>{{ item.snapshot.observed_at|date:"j M Y, H:i" }}</td><td>€{{ item.snapshot.asking_price|floatformat:2 }}</td><td>{{ item.snapshot.mileage }} km</td><td>#{{ item.snapshot.import_run_id }} · {{ item.snapshot.import_run.source }}</td><td>{% if item.price_difference != None %}€{{ item.price_difference|floatformat:2 }}{% else %}—{% endif %}</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}<div class="panel">No price observations are available.</div>{% endif %}
+</section>
+{% endblock %}

@@ -1,0 +1,23 @@
+{% extends "vehicles/base.html" %}
+
+{% block title %}Manual vehicles | Vehicle Market Intel{% endblock %}
+
+{% block content %}
+<h1>Manually entered vehicles</h1>
+<p class="meta">Purchase opportunities entered directly in Django.</p>
+
+{% if vehicles %}
+<div class="table-wrap panel">
+    <table>
+        <thead><tr><th>Make</th><th>Model</th><th>Year</th><th>Mileage</th><th>Fuel</th><th>Purchase price</th><th>Expected sale</th><th>Estimated profit</th></tr></thead>
+        <tbody>
+        {% for vehicle in vehicles %}
+            <tr><td>{{ vehicle.make }}</td><td>{{ vehicle.model }}</td><td>{{ vehicle.year }}</td><td>{{ vehicle.mileage }} km</td><td>{{ vehicle.fuel_type }}</td><td>€{{ vehicle.purchase_price|floatformat:2 }}</td><td>€{{ vehicle.expected_sale_price|floatformat:2 }}</td><td>€{{ vehicle.estimated_profit|floatformat:2 }}</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="panel">No vehicles added yet.</div>
+{% endif %}
+{% endblock %}
