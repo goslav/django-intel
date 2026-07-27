@@ -1,0 +1,10 @@
+{% extends "vehicles/base.html" %}
+{% block title %}{{ heading }} | Vehicle Market Intel{% endblock %}
+{% block content %}
+<p><a href="{% url 'market_profiles:list' %}">Back to market profiles</a></p><h1>{{ heading }}</h1>
+<form method="post" class="panel">{% csrf_token %}
+{% if form.non_field_errors %}<div class="errors">{{ form.non_field_errors }}</div>{% endif %}
+<div class="form-grid">{% for field in form %}<div class="{% if field.name == 'notes' or field.name == 'source_search_url' %}full{% endif %}"><label for="{{ field.id_for_label }}">{{ field.label }}{{ field }}</label>{% if field.help_text %}<small class="meta">{{ field.help_text }}</small>{% endif %}{% if field.errors %}<div class="errors">{{ field.errors }}</div>{% endif %}</div>{% endfor %}</div>
+<div class="actions section"><button type="submit">{{ submit_label }}</button>{% if profile %}<a href="{% url 'market_profiles:detail' profile.pk %}">Cancel</a>{% else %}<a href="{% url 'market_profiles:list' %}">Cancel</a>{% endif %}</div>
+</form>
+{% endblock %}

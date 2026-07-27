@@ -22,5 +22,8 @@ urlpatterns = [
     path("", views.home, name="home"),
     path("admin/", admin.site.urls),
     path("market/", include("vehicles.market_urls")),
+    path("market-profiles/", include("vehicles.profile_urls")),
+    path("listings/", include("vehicles.listing_urls")),
+    path("source-searches/", include("vehicles.source_search_urls")),
     path("vehicles/", include("vehicles.urls")),
 ]

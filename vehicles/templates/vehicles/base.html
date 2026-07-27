@@ -23,6 +23,7 @@
         button, .button { background: #1769aa; color: white; border: 0; cursor: pointer; text-decoration: none; display: inline-block; padding: .65rem 1rem; border-radius: .35rem; width: auto; }
         .actions { display: flex; align-items: end; gap: .6rem; }
         .grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; margin-top: 1rem; }
+        .listing-thumbnail { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; background: #e7eaed; margin-bottom: .8rem; }
         .meta { color: #58636f; }
         .price { font-size: 1.35rem; font-weight: 700; }
         .stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .8rem; }
@@ -31,8 +32,17 @@
         .table-wrap { overflow-x: auto; }
         table { width: 100%; border-collapse: collapse; background: white; }
         th, td { text-align: left; padding: .7rem; border-bottom: 1px solid #dce1e6; white-space: nowrap; }
-        .pagination { display: flex; justify-content: center; align-items: center; gap: 1rem; margin-top: 1.5rem; }
+        .pagination { display: flex; justify-content: center; align-items: center; gap: .45rem; margin-top: 1.5rem; min-height: 40px; }
+        .pagination a, .pagination span { color: #1358a2; background: white; border: 1px solid #b9c3cd; border-radius: .3rem; min-width: 2.5rem; height: 2.5rem; padding: .45rem .7rem; display: inline-flex; align-items: center; justify-content: center; text-decoration: none; }
+        .pagination a:hover { background: #edf4fb; }
+        .pagination .current { color: white; background: #1769aa; border-color: #1769aa; font-weight: 700; }
         .errors { color: #8b1e1e; background: #fff0f0; padding: .8rem 1rem; border-radius: .4rem; }
+        .messages { list-style: none; padding: 0; }
+        .messages li { background: #eaf7ee; border: 1px solid #9ac9a6; padding: .8rem 1rem; }
+        .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+        .form-grid .full { grid-column: 1 / -1; }
+        .status { display: inline-block; padding: .2rem .45rem; border-radius: .3rem; background: #e5e9ed; }
+        .status.active { color: #17602b; background: #e6f4ea; }
         .section { margin-top: 2rem; }
         @media (max-width: 850px) { .filters, .grid, .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
         @media (max-width: 560px) { nav strong { width: 100%; margin-top: .8rem; } .filters, .grid, .stats { grid-template-columns: 1fr; } main { padding-top: 1rem; } }
@@ -43,9 +53,16 @@
         <nav>
             <strong><a href="{% url 'home' %}">Vehicle Market Intel</a></strong>
             <a href="{% url 'market:listing_list' %}">Marketplace listings</a>
+            <a href="{% url 'market_profiles:list' %}">Market profiles</a>
+            <a href="{% url 'classification_review' %}">Classification review</a>
+            <a href="{% url 'source_search_list' %}">Source searches</a>
             <a href="{% url 'vehicles:vehicle_list' %}">Manual vehicles</a>
+            <a href="{% url 'admin:index' %}">Admin</a>
         </nav>
     </header>
-    <main>{% block content %}{% endblock %}</main>
+    <main>
+        {% if messages %}<ul class="messages">{% for message in messages %}<li>{{ message }}</li>{% endfor %}</ul>{% endif %}
+        {% block content %}{% endblock %}
+    </main>
 </body>
 </html>

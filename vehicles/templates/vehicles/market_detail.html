@@ -1,4 +1,4 @@
-{% extends "vehicles/base.html" %}
+{% extends "vehicles/base.html" %}{% load vehicle_links %}
 
 {% block title %}{{ listing.title|default:listing.make }} | Vehicle Market Intel{% endblock %}
 
@@ -6,10 +6,10 @@
 <p><a href="{% url 'market:listing_list' %}">← Back to marketplace listings</a></p>
 <section class="panel">
     <h1>{{ listing.title|default:listing.make }}{% if not listing.title %} {{ listing.model }}{% endif %}</h1>
-    {% if listing.latest_price != None %}<div class="price">€{{ listing.latest_price|floatformat:2 }} asking price</div>{% else %}<div class="price">No observed price</div>{% endif %}
+    {% if listing.latest_price != None %}<div class="price">€{{ listing.latest_price|price_sr }} asking price</div>{% else %}<div class="price">No observed price</div>{% endif %}
     <p>{{ listing.year }} · {{ listing.mileage }} km · {{ listing.fuel }}{% if listing.transmission %} · {{ listing.transmission }}{% endif %}</p>
-    <p class="meta">Source: {{ listing.source }} · Last seen {{ listing.last_seen_at|date:"j M Y, H:i" }}</p>
-    {% if listing.source_url %}<a class="button" href="{{ listing.source_url }}" target="_blank" rel="noopener">Open original listing</a>{% endif %}
+    <p class="meta">Source: {{ listing.source }} · Published {% if listing.published_at %}{{ listing.published_at|date:"j M Y" }} ({{ listing.days_on_market }} days on market){% else %}unknown{% endif %} · Last seen {{ listing.last_seen_at|date:"j M Y, H:i" }}</p>
+    {% with original_url=listing|pa_public_url %}{% if original_url %}<a class="button" href="{{ original_url }}" target="_blank" rel="noopener noreferrer">Open original advertisement</a>{% endif %}{% endwith %}
 </section>
 
 <section class="section">
@@ -27,16 +27,17 @@
     <p><strong>Asking-price statistics</strong> — these are advertised prices, not confirmed sale prices.</p>
     <div class="stats">
         <div class="stat"><span>Comparable listings</span><strong>{{ summary.count }}</strong></div>
-        <div class="stat"><span>Lowest asking price</span><strong>€{{ summary.minimum|floatformat:2 }}</strong></div>
-        <div class="stat"><span>Highest asking price</span><strong>€{{ summary.maximum|floatformat:2 }}</strong></div>
-        <div class="stat"><span>Average asking price</span><strong>€{{ summary.average|floatformat:2 }}</strong></div>
-        <div class="stat"><span>Median asking price</span><strong>€{{ summary.median|floatformat:2 }}</strong></div>
-        <div class="stat"><span>Selected vs median</span>{% if summary.selected_difference != None %}<strong>€{{ summary.selected_difference|floatformat:2 }}{% if summary.selected_difference_percentage != None %} ({{ summary.selected_difference_percentage|floatformat:2 }}%){% endif %}</strong>{% else %}<strong>Unavailable</strong>{% endif %}</div>
+        <div class="stat"><span>Lowest asking price</span><strong>€{{ summary.minimum|price_sr }}</strong></div>
+        <div class="stat"><span>Highest asking price</span><strong>€{{ summary.maximum|price_sr }}</strong></div>
+        <div class="stat"><span>Average asking price</span><strong>€{{ summary.average|price_sr }}</strong></div>
+        <div class="stat"><span>Median asking price</span><strong>€{{ summary.median|price_sr }}</strong></div>
+        <div class="stat"><span>Average days on market</span><strong>{% if summary.average_days_on_market != None %}{{ summary.average_days_on_market|floatformat:1 }} days{% else %}Unavailable{% endif %}</strong><span class="meta">{{ summary.publication_date_count }} of {{ summary.count }} listings</span></div>
+        <div class="stat"><span>Selected vs median</span>{% if summary.selected_difference != None %}<strong>€{{ summary.selected_difference|price_sr }}{% if summary.selected_difference_percentage != None %} ({{ summary.selected_difference_percentage|floatformat:2 }}%){% endif %}</strong>{% else %}<strong>Unavailable</strong>{% endif %}</div>
     </div>
     <div class="table-wrap panel section">
         <table>
-            <thead><tr><th>Listing</th><th>Year</th><th>Mileage</th><th>Transmission</th><th>Latest asking price</th><th>Observed</th></tr></thead>
-            <tbody>{% for comparable in comparables %}<tr><td><a href="{% url 'market:listing_detail' comparable.pk %}">{{ comparable.title|default:comparable.make }}{% if not comparable.title %} {{ comparable.model }}{% endif %}</a></td><td>{{ comparable.year }}</td><td>{{ comparable.mileage }} km</td><td>{{ comparable.transmission|default:"—" }}</td><td>€{{ comparable.latest_price|floatformat:2 }}</td><td>{{ comparable.latest_observed_at|date:"j M Y" }}</td></tr>{% endfor %}</tbody>
+            <thead><tr><th>Listing</th><th>Year</th><th>Mileage</th><th>Transmission</th><th>Latest asking price</th><th>Published</th><th>Days on market</th><th>Observed</th></tr></thead>
+            <tbody>{% for comparable in comparables %}<tr><td><a href="{% url 'market:listing_detail' comparable.pk %}">{{ comparable.title|default:comparable.make }}{% if not comparable.title %} {{ comparable.model }}{% endif %}</a></td><td>{{ comparable.year }}</td><td>{{ comparable.mileage }} km</td><td>{{ comparable.transmission|default:"—" }}</td><td>€{{ comparable.latest_price|price_sr }}</td><td>{{ comparable.published_at|date:"j M Y"|default:"Unknown" }}</td><td>{{ comparable.days_on_market|default_if_none:"-" }}</td><td>{{ comparable.latest_observed_at|date:"j M Y" }}</td></tr>{% endfor %}</tbody>
         </table>
     </div>
     {% else %}
@@ -52,7 +53,7 @@
             <thead><tr><th>Observed</th><th>Asking price</th><th>Mileage</th><th>Import run</th><th>Change</th></tr></thead>
             <tbody>
             {% for item in history %}
-                <tr><td>{{ item.snapshot.observed_at|date:"j M Y, H:i" }}</td><td>€{{ item.snapshot.asking_price|floatformat:2 }}</td><td>{{ item.snapshot.mileage }} km</td><td>#{{ item.snapshot.import_run_id }} · {{ item.snapshot.import_run.source }}</td><td>{% if item.price_difference != None %}€{{ item.price_difference|floatformat:2 }}{% else %}—{% endif %}</td></tr>
+                <tr><td>{{ item.snapshot.observed_at|date:"j M Y, H:i" }}</td><td>€{{ item.snapshot.asking_price|price_sr }}</td><td>{{ item.snapshot.mileage }} km</td><td>#{{ item.snapshot.import_run_id }} · {{ item.snapshot.import_run.source }}</td><td>{% if item.price_difference != None %}€{{ item.price_difference|price_sr }}{% else %}—{% endif %}</td></tr>
             {% endfor %}
             </tbody>
         </table>
