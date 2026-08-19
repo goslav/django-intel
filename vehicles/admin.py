@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import ImportRun, Listing, ListingSnapshot, Vehicle
+from .models import Dealer, DealerInventorySnapshot, DealerListingMembership, DealerSnapshotListing, ImportRun, Listing, ListingSnapshot, MarketProfile, SourceSearch, SourceSearchMembership, SourceSearchRun, SourceSearchRunListing, Vehicle
 
 
 @admin.register(Vehicle)
@@ -39,11 +39,16 @@ class ListingAdmin(admin.ModelAdmin):
         "model",
         "year",
         "mileage",
+        "generation",
+        "facelift_status",
+        "engine_family",
+        "classification_method",
+        "classification_manually_overridden",
         "status",
         "last_seen_at",
     )
-    search_fields = ("external_id", "title", "make", "model", "source_url")
-    list_filter = ("source", "status", "fuel", "transmission", "year")
+    search_fields = ("external_id", "title", "make", "model", "generation", "engine_family", "source_url")
+    list_filter = ("source", "status", "generation", "facelift_status", "engine_family", "transmission_category", "classification_method", "classification_manually_overridden", "fuel", "year")
     readonly_fields = ("first_seen_at", "last_seen_at", "created_at", "updated_at")
     inlines = (ListingSnapshotInline,)
     date_hierarchy = "last_seen_at"
@@ -93,3 +98,58 @@ class ImportRunAdmin(admin.ModelAdmin):
         "error_summary",
     )
     date_hierarchy = "snapshot_at"
+
+
+@admin.register(MarketProfile)
+class MarketProfileAdmin(admin.ModelAdmin):
+    list_display = ("name", "source", "make", "model", "generation", "facelift_status", "engine_family", "transmission", "is_active", "updated_at")
+    search_fields = ("name", "source", "make", "model", "notes")
+    list_filter = ("is_active", "source", "fuel", "transmission")
+    readonly_fields = ("created_at", "updated_at")
+    fieldsets = (
+        ("Profile", {"fields": ("name", "is_active", "notes")}),
+        ("Vehicle segment", {"fields": ("make", "model", "generation", "facelift_status", "engine_family", ("minimum_year", "maximum_year"), ("minimum_mileage", "maximum_mileage"), ("minimum_power_kw", "maximum_power_kw"), "fuel", "transmission")}),
+        ("Source", {"fields": ("source", "source_search_url")}),
+        ("Timestamps", {"fields": ("created_at", "updated_at")}),
+    )
+
+
+@admin.register(SourceSearch)
+class SourceSearchAdmin(admin.ModelAdmin):
+    list_display = ("name", "source", "is_active", "maximum_pages", "last_refresh_status", "last_refresh_completed_at")
+    list_filter = ("source", "is_active", "last_refresh_status")
+    search_fields = ("name", "search_url")
+    readonly_fields = ("last_refresh_started_at", "last_refresh_completed_at", "last_refresh_status", "last_error_summary", "created_at", "updated_at")
+
+
+admin.site.register(SourceSearchRun)
+admin.site.register(SourceSearchRunListing)
+admin.site.register(SourceSearchMembership)
+@admin.register(Dealer)
+class DealerAdmin(admin.ModelAdmin):
+    list_display = ("name", "source", "external_id", "inventory_type", "is_active", "updated_at")
+    list_filter = ("inventory_type", "is_active", "source")
+    search_fields = ("name", "external_id", "api_url")
+@admin.register(DealerInventorySnapshot)
+class DealerInventorySnapshotAdmin(admin.ModelAdmin):
+    list_display = ("dealer", "observed_at", "status", "inventory_count", "median_price")
+    readonly_fields = [field.name for field in DealerInventorySnapshot._meta.fields]
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(DealerSnapshotListing)
+class DealerSnapshotListingAdmin(admin.ModelAdmin):
+    list_display = ("snapshot", "listing", "asking_price", "mileage", "status", "observed_at")
+    readonly_fields = [field.name for field in DealerSnapshotListing._meta.fields]
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+admin.site.register(DealerListingMembership)

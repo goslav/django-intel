@@ -1,0 +1,51 @@
+{% extends "vehicles/base.html" %}
+{% load dealer_format %}
+{% block title %}Cross-dealer model comparison{% endblock %}
+{% block content %}
+<h1>Cross-dealer model comparison</h1>
+<p class="meta">Compare matching vehicles from each dealer's latest complete snapshot. Thirty-day changes use completed historical snapshots. Apparent turnover is observed disappearances divided by matching opening stock; disappearance means no longer observed, not sold.</p>
+<form method="get" class="filters panel">
+  <label>Make<input name="make" value="{{ filters.make }}" list="make-options" placeholder="Peugeot"><datalist id="make-options">{% for value in makes %}<option value="{{ value }}">{% endfor %}</datalist></label>
+  <label>Model<input name="model" value="{{ filters.model }}" list="model-options" placeholder="3008"><datalist id="model-options">{% for value in models %}<option value="{{ value }}">{% endfor %}</datalist></label>
+  <label>Dealers<select id="dealer-filter" name="dealer" multiple size="6"><option value=""{% if not filters.dealer_ids %} selected{% endif %}>All dealers</option>{% for option in dealers %}<option value="{{ option.pk }}"{% if option.pk in filters.dealer_ids %} selected{% endif %}>{{ option.name }}</option>{% endfor %}</select><small class="meta">Choose “All dealers,” or Ctrl-click to select multiple dealers.</small></label>
+  <label>Fuel<select name="fuel"><option value="">All fuels</option>{% for value in fuels %}<option value="{{ value }}"{% if filters.fuel == value %} selected{% endif %}>{{ value }}</option>{% endfor %}</select></label>
+  <label>Minimum year<input type="number" name="year_min" value="{{ filters.minimum_year|default_if_none:'' }}"></label>
+  <label>Maximum year<input type="number" name="year_max" value="{{ filters.maximum_year|default_if_none:'' }}"></label>
+  <label>Transmission<select name="transmission"><option value="">All transmissions</option>{% for value, label in transmissions %}<option value="{{ value }}"{% if filters.transmission == value %} selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+  <div class="actions"><button type="submit">Compare</button><a class="button" href="{% url 'dealers:model_comparison' %}">Clear</a></div>
+</form>
+<section class="section">
+<h2>Most frequently observed models</h2>
+<p class="meta">Ranked by matching relevant vehicles in each dealer's latest complete snapshot. The current filters apply to this ranking.</p>
+<div class="table-wrap"><table>
+<thead><tr><th>Rank</th><th>Make / model</th><th>Current listings</th><th>Dealers represented</th><th>Median ad days</th><th>Opening stock, 30 days</th><th>No longer observed, 30 days</th><th>Apparent inventory turnover</th></tr></thead>
+<tbody>{% for model_row in model_frequencies %}<tr>
+  <td>{{ forloop.counter }}</td><td><a href="?make={{ model_row.make|urlencode }}&amp;model={{ model_row.model|urlencode }}{% for dealer_id in filters.dealer_ids %}&amp;dealer={{ dealer_id }}{% endfor %}{% if filters.minimum_year %}&amp;year_min={{ filters.minimum_year }}{% endif %}{% if filters.maximum_year %}&amp;year_max={{ filters.maximum_year }}{% endif %}{% if filters.fuel %}&amp;fuel={{ filters.fuel|urlencode }}{% endif %}{% if filters.transmission %}&amp;transmission={{ filters.transmission|urlencode }}{% endif %}">{{ model_row.make }} {{ model_row.model }}</a></td><td>{{ model_row.stock_count }}</td><td>{{ model_row.dealer_count }}</td><td>{{ model_row.median_ad_days|floatformat:1 }}</td><td>{{ model_row.opening_stock_count }}</td><td>{{ model_row.disappeared_count }}</td><td>{% if model_row.apparent_turnover != None %}{{ model_row.apparent_turnover|floatformat:1 }}%{% else %}—{% endif %}</td>
+</tr>{% empty %}<tr><td colspan="8">No models match the current filters.</td></tr>{% endfor %}</tbody>
+</table></div>
+</section>
+<section class="section">
+<h2>Dealer comparison</h2>
+<div class="table-wrap section"><table>
+<thead><tr><th>Dealer</th><th>Current relevant stock</th><th>Median asking price</th><th>Median mileage</th><th>Median ad days</th><th>New, 30 days</th><th>No longer observed, 30 days</th><th>Apparent inventory turnover, 30 days</th><th>Price reductions, 30 days</th></tr></thead>
+<tbody>{% for row in rows %}<tr>
+  <td><a href="{% url 'dealers:model_comparison_detail' row.dealer.pk %}{% if querystring %}?{{ querystring }}{% endif %}">{{ row.dealer.name }}</a></td>
+  <td>{{ row.stock_count }}</td><td>€{{ row.median_price|dot_thousands }}</td><td>{{ row.median_mileage|dot_thousands }} km</td><td>{{ row.median_ad_age|floatformat:1 }} days</td><td>{{ row.new_count }}</td><td>{{ row.disappeared_count }}</td><td>{% if row.apparent_turnover != None %}{{ row.apparent_turnover|floatformat:1 }}%{% else %}—{% endif %}</td><td>{{ row.reduction_count }}</td>
+</tr>{% empty %}<tr><td colspan="9">No dealers have relevant vehicles matching these filters.</td></tr>{% endfor %}</tbody>
+</table></div>
+</section>
+<script>
+(() => {
+  const dealers = document.getElementById("dealer-filter");
+  if (!dealers) return;
+  dealers.addEventListener("change", event => {
+    const all = dealers.options[0];
+    if (event.target === all && all.selected) {
+      [...dealers.options].slice(1).forEach(option => { option.selected = false; });
+    } else if ([...dealers.options].slice(1).some(option => option.selected)) {
+      all.selected = false;
+    }
+  });
+})();
+</script>
+{% endblock %}

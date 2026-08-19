@@ -17,6 +17,8 @@ The project is intentionally a Django modular monolith. It currently uses SQLite
 - Asking-price minimum, maximum, average, and median statistics
 - Chronological price history
 - Django admin support for vehicles, listings, snapshots, and import runs
+- Dealer API inventory ingestion, daily snapshots, pricing metrics, and disappearance tracking
+- Immutable dealer snapshot history with captured price, mileage, status, timestamp, and raw observations
 
 ## Requirements
 
@@ -102,6 +104,67 @@ The detail page selects active comparables with a latest asking-price observatio
 - Transmission matching disabled by default
 
 Users can change year and mileage tolerances and optionally require the same transmission. Displayed statistics describe advertised asking prices, not confirmed sale prices.
+
+## Dealer intelligence
+
+Seed the configured active Polovni Automobili dealers (including Kia Centar):
+
+```powershell
+python manage.py seed_tracked_dealers
+```
+
+The seed is idempotent and updates matching dealers by storefront URL or stable
+Polovni identifier. AK Kompresor is retained and labelled as new-cars-only;
+Kia Centar and Auto Nena Still Peugeot are labelled as mixed new-and-used dealers;
+Autoland is tracked separately as a used-car dealer. You can also create a dealer in Django administration with its API URL, source, external dealer
+ID, and desired price-bracket size. The API must return a JSON array (or an object
+with a `vehicles` array) containing `external_id`, `make`, `model`, `year`,
+`mileage`, `fuel`, and `asking_price`. Optional fields are `title`, `source_url`,
+`thumbnail_url`, `transmission`, and `published_at`.
+
+If the API uses bearer authentication, configure the environment-variable name on
+the dealer; the token itself is never stored. Create the complete daily snapshot:
+
+```powershell
+python manage.py refresh_dealer <dealer_id>
+```
+
+Every successful response is treated as complete inventory. Ads absent from the
+response are timestamped as disappeared, and a later return is tracked as a
+reappearance. To refresh every active dealer, use the automation-safe batch command:
+
+```powershell
+python manage.py refresh_active_dealers
+```
+
+The batch command creates a new immutable snapshot after each successful refresh,
+skips dealers that already have a completed snapshot for the current local day,
+and continues when one dealer fails. It exits with an error after the remaining
+dealers have run if any refresh failed, so a retry only attempts dealers that do
+not yet have a successful snapshot that day. Validation, listing updates, and the
+new snapshot are committed atomically; partial or failed responses do not replace
+the last successful state.
+
+For Windows Task Scheduler, create a daily task whose **Program/script** is the
+project virtual environment's Python executable, for example
+`C:\path\to\django-intel\.venv\Scripts\python.exe`. Set **Add arguments** to
+`manage.py refresh_active_dealers` and **Start in** to `C:\path\to\django-intel`.
+Configure any dealer token environment variables for the task's Windows account,
+and set the task's "If the task is already running" option to "Do not start a new
+instance."
+
+Completed captures are never overwritten. Each snapshot preserves its summary and
+captured listing set, while each snapshot item stores the observed price, mileage,
+status, timestamp, and raw source record. Browse dealer history at
+`/dealers/<dealer_id>/snapshots/`.
+
+Compare a make/model across the latest complete snapshots for all active dealers at
+`/dealers/compare/`. The comparison supports dealer, year, fuel, and transmission
+filters (including all dealers or any multi-selected subset), ranks the most
+frequently observed models under the current filters, and
+links to a per-dealer vehicle drill-down. Thirty-day changes come from
+completed historical snapshots; disappeared advertisements are labelled as no
+longer observed, never as confirmed sales.
 
 ## Tests and checks
 

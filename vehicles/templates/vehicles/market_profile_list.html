@@ -1,0 +1,16 @@
+{% extends "vehicles/base.html" %}
+{% block title %}Market profiles | Vehicle Market Intel{% endblock %}
+{% block content %}
+<div class="actions"><div><h1>Market profiles</h1><p class="meta">Saved vehicle-segment queries using current listing snapshots.</p></div><a class="button" href="{% url 'market_profiles:create' %}">New profile</a></div>
+{% if profiles %}
+<div class="table-wrap panel section"><table>
+<thead><tr><th>Profile</th><th>Vehicle</th><th>Generation</th><th>Facelift</th><th>Engine</th><th>Transmission</th><th>Years</th><th>Mileage</th><th>Status</th><th>Matches</th><th>Actions</th></tr></thead>
+<tbody>{% for profile in profiles %}<tr>
+<td><strong>{{ profile.name }}</strong></td><td>{{ profile.make }} {{ profile.model }}</td><td>{{ profile.generation|default:"Any" }}</td><td>{{ profile.get_facelift_status_display|default:"Any" }}</td><td>{{ profile.engine_family|default:"Any" }}</td><td>{{ profile.transmission|default:"Any" }}</td>
+<td>{% if profile.minimum_year != None %}{{ profile.minimum_year }}{% else %}Any{% endif %}-{% if profile.maximum_year != None %}{{ profile.maximum_year }}{% else %}Any{% endif %}</td>
+<td>{% if profile.minimum_mileage != None %}{{ profile.minimum_mileage }}{% else %}Any{% endif %} - {% if profile.maximum_mileage != None %}{{ profile.maximum_mileage }} km{% else %}Any{% endif %}</td>
+<td><span class="status {% if profile.is_active %}active{% endif %}">{% if profile.is_active %}Active{% else %}Inactive{% endif %}</span></td><td>{{ profile.matching_count }}</td>
+<td><a href="{% url 'market_profiles:detail' profile.pk %}">Dashboard</a> | <a href="{% url 'market_profiles:edit' profile.pk %}">Edit</a></td>
+</tr>{% endfor %}</tbody></table></div>
+{% else %}<div class="panel">No market profiles have been saved. <a href="{% url 'market_profiles:create' %}">Create the first profile</a>.</div>{% endif %}
+{% endblock %}

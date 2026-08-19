@@ -1,17 +1,18 @@
-{% extends "vehicles/base.html" %}
+{% extends "vehicles/base.html" %}{% load vehicle_links %}
 
 {% block title %}Marketplace listings | Vehicle Market Intel{% endblock %}
 
 {% block content %}
 <h1>Marketplace listings</h1>
-<p class="meta">Active advertisements and their latest observed asking prices.</p>
+<p class="meta">Enter a vehicle definition to find comparable active advertisements and their latest observed asking prices.</p>
 
 <form method="get" class="panel filters">
     <label>Source<select name="source"><option value="">All</option>{% for value in choices.source %}{% if value %}<option value="{{ value }}" {% if request.GET.source == value %}selected{% endif %}>{{ value }}</option>{% endif %}{% endfor %}</select></label>
-    <label>Make<select name="make"><option value="">All</option>{% for value in choices.make %}<option value="{{ value }}" {% if request.GET.make == value %}selected{% endif %}>{{ value }}</option>{% endfor %}</select></label>
-    <label>Model<select name="model"><option value="">All</option>{% for value in choices.model %}<option value="{{ value }}" {% if request.GET.model == value %}selected{% endif %}>{{ value }}</option>{% endfor %}</select></label>
+    <label>Brand<input type="search" name="make" list="brand-options" value="{{ request.GET.make }}" placeholder="All brands" autocomplete="off"><datalist id="brand-options">{% for value in choices.make %}<option value="{{ value }}">{% endfor %}</datalist></label>
+    <label>Model<input type="text" name="model" list="model-options" value="{{ request.GET.model }}" placeholder="Any model"><datalist id="model-options">{% for value in choices.model %}<option value="{{ value }}">{% endfor %}</datalist></label>
     <label>Fuel<select name="fuel"><option value="">All</option>{% for value in choices.fuel %}<option value="{{ value }}" {% if request.GET.fuel == value %}selected{% endif %}>{{ value }}</option>{% endfor %}</select></label>
     <label>Transmission<select name="transmission"><option value="">All</option>{% for value in choices.transmission %}{% if value %}<option value="{{ value }}" {% if request.GET.transmission == value %}selected{% endif %}>{{ value }}</option>{% endif %}{% endfor %}</select></label>
+    <label>Exact model year<input type="number" min="1886" name="year" value="{{ request.GET.year }}"></label>
     <label>Minimum year<input type="number" min="0" name="min_year" value="{{ request.GET.min_year }}"></label>
     <label>Maximum year<input type="number" min="0" name="max_year" value="{{ request.GET.max_year }}"></label>
     <label>Minimum mileage<input type="number" min="0" name="min_mileage" value="{{ request.GET.min_mileage }}"></label>
@@ -19,6 +20,8 @@
     <label>Minimum asking price (€)<input type="number" min="0" step="0.01" name="min_price" value="{{ request.GET.min_price }}"></label>
     <label>Maximum asking price (€)<input type="number" min="0" step="0.01" name="max_price" value="{{ request.GET.max_price }}"></label>
     <label>Sort by<select name="sort">
+        <option value="newest_published" {% if selected_sort == 'newest_published' %}selected{% endif %}>Newest advertisement</option>
+        <option value="oldest_published" {% if selected_sort == 'oldest_published' %}selected{% endif %}>Longest time on market</option>
         <option value="newest_observed" {% if selected_sort == 'newest_observed' %}selected{% endif %}>Newest observed</option>
         <option value="oldest_observed" {% if selected_sort == 'oldest_observed' %}selected{% endif %}>Oldest observed</option>
         <option value="lowest_price" {% if selected_sort == 'lowest_price' %}selected{% endif %}>Lowest price</option>
@@ -28,20 +31,23 @@
         <option value="newest_year" {% if selected_sort == 'newest_year' %}selected{% endif %}>Newest model year</option>
         <option value="oldest_year" {% if selected_sort == 'oldest_year' %}selected{% endif %}>Oldest model year</option>
     </select></label>
-    <div class="actions"><button type="submit">Apply filters</button><a href="{% url 'market:listing_list' %}">Clear</a></div>
+    <div class="actions"><button type="submit">Show comparable results</button><a href="{% url 'market:listing_list' %}">Clear</a></div>
 </form>
+
+{% if comparable_summary %}<section class="section"><h2>Comparable market summary</h2><p class="meta">Advertisement asking prices, not confirmed selling prices.{% if year_window %} Target year {{ year_window.target }}; comparable years {{ year_window.minimum }}-{{ year_window.maximum }}.{% if year_window.expanded %} Expanded because the three-year population contained fewer than {{ year_window.minimum_population }} listings.{% endif %}{% endif %}</p><div class="stats"><div class="stat"><span>Active comparables</span><strong>{{ comparable_summary.count }}</strong></div><div class="stat"><span>Median asking price</span><strong>EUR {{ comparable_summary.median_price|price_sr }}</strong></div><div class="stat"><span>Average asking price</span><strong>EUR {{ comparable_summary.average_price|price_sr }}</strong></div><div class="stat"><span>Average days on market</span><strong>{% if comparable_summary.average_days_on_market != None %}{{ comparable_summary.average_days_on_market|floatformat:1 }} days{% else %}Unavailable{% endif %}</strong><span class="meta">{{ comparable_summary.publication_date_count }} of {{ comparable_summary.count }} listings</span></div><div class="stat"><span>Lowest / highest asking</span><strong>EUR {{ comparable_summary.minimum_price|price_sr }} / EUR {{ comparable_summary.maximum_price|price_sr }}</strong></div><div class="stat"><span>25th-75th percentile</span><strong>EUR {{ comparable_summary.price_percentile_25|price_sr }} - EUR {{ comparable_summary.price_percentile_75|price_sr }}</strong></div><div class="stat"><span>Median mileage</span><strong>{{ comparable_summary.median_mileage|floatformat:0 }} km</strong></div></div></section>{% elif request.GET.make or request.GET.model or request.GET.fuel or request.GET.transmission or request.GET.year %}<div class="panel section">No active comparable listings match this vehicle definition.</div>{% endif %}
 
 <p><strong>{{ page.paginator.count }}</strong> active listing{{ page.paginator.count|pluralize }}</p>
 {% if page.object_list %}
 <div class="grid">
 {% for listing in page.object_list %}
     <article class="card">
+        {% if listing.thumbnail_url %}<img class="listing-thumbnail" src="{{ listing.thumbnail_url }}" alt="" loading="lazy" referrerpolicy="no-referrer">{% endif %}
         <h2><a href="{% url 'market:listing_detail' listing.pk %}">{{ listing.title|default:listing.make }}{% if not listing.title %} {{ listing.model }}{% endif %}</a></h2>
-        <div class="price">€{{ listing.latest_price|floatformat:2 }}</div>
+        <div class="price">€{{ listing.latest_price|price_sr }}</div>
         <p>{{ listing.year }} · {{ listing.mileage }} km · {{ listing.fuel }}{% if listing.transmission %} · {{ listing.transmission }}{% endif %}</p>
-        <p class="meta">{{ listing.source }} · Last seen {{ listing.last_seen_at|date:"j M Y" }}</p>
+        <p class="meta">{{ listing.source }} · Published {% if listing.published_at %}{{ listing.published_at|date:"j M Y" }} ({{ listing.days_on_market }} days){% else %}unknown{% endif %} · Last seen {{ listing.last_seen_at|date:"j M Y" }}</p>
         <a href="{% url 'market:listing_detail' listing.pk %}">View comparison</a>
-        {% if listing.source_url %} · <a href="{{ listing.source_url }}" target="_blank" rel="noopener">Original listing</a>{% endif %}
+        {% with original_url=listing|pa_public_url %}{% if original_url %} · <a href="{{ original_url }}" target="_blank" rel="noopener noreferrer">Open original advertisement</a>{% endif %}{% endwith %}
     </article>
 {% endfor %}
 </div>
@@ -52,7 +58,7 @@
 {% if page.paginator.num_pages > 1 %}
 <nav class="pagination" aria-label="Pagination">
     {% if page.has_previous %}<a href="?{% if querystring %}{{ querystring }}&amp;{% endif %}page={{ page.previous_page_number }}">Previous</a>{% endif %}
-    <span>Page {{ page.number }} of {{ page.paginator.num_pages }}</span>
+    {% for page_number in page.paginator.page_range %}{% if page_number == page.number %}<span class="current" aria-current="page">{{ page_number }}</span>{% else %}<a href="?{% if querystring %}{{ querystring }}&amp;{% endif %}page={{ page_number }}">{{ page_number }}</a>{% endif %}{% endfor %}
     {% if page.has_next %}<a href="?{% if querystring %}{{ querystring }}&amp;{% endif %}page={{ page.next_page_number }}">Next</a>{% endif %}
 </nav>
 {% endif %}

@@ -25,6 +25,7 @@ from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 
 from vehicles.models import ImportRun, Listing, ListingSnapshot
+from vehicles.services.vehicle_classification import classify_listing
 
 
 CSV_COLUMNS = (
@@ -198,6 +199,8 @@ def import_listings(csv_path: str | Path, source: str, is_full_snapshot: bool = 
                     if changed:
                         listing.save()
                         updated_count += 1
+
+                classify_listing(listing)
 
                 observed_listing_ids.add(listing.pk)
                 snapshot_exists = ListingSnapshot.objects.filter(

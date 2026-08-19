@@ -1,0 +1,17 @@
+{% extends "vehicles/base.html" %}
+{% block title %}Classification review | Vehicle Market Intel{% endblock %}
+{% block content %}
+<h1>Classification review</h1>
+<p class="meta">Peugeot 2008 and 3008 listings with missing or low-confidence commercial classification.</p>
+{% if page.object_list %}<div class="grid">{% for listing in page.object_list %}<article class="card">
+<h2>{{ listing.title|default:listing.make }}</h2><p>{{ listing.year }} | {{ listing.transmission|default:"No source transmission" }}</p>
+<p class="meta">Method: {{ listing.get_classification_method_display }} | Confidence: {{ listing.classification_confidence }}{% if listing.classification_notes %}<br>{{ listing.classification_notes }}{% endif %}</p>
+<form method="post">{% csrf_token %}<input type="hidden" name="listing_id" value="{{ listing.pk }}">
+<label>Generation<input name="generation" value="{{ listing.generation }}" placeholder="I or II"></label>
+<label>Facelift status<select name="facelift_status">{% for value,label in listing.FaceliftStatus.choices %}<option value="{{ value }}" {% if listing.facelift_status == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+<label>Engine family<input name="engine_family" value="{{ listing.engine_family }}" placeholder="1.5 BlueHDi"></label>
+<label>Transmission category<select name="transmission_category">{% for value,label in listing.TransmissionCategory.choices %}<option value="{{ value }}" {% if listing.transmission_category == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+<button type="submit">Save classification</button></form></article>{% endfor %}</div>
+{% else %}<div class="panel">No listings currently require classification review.</div>{% endif %}
+{% if page.paginator.num_pages > 1 %}<nav class="pagination">{% if page.has_previous %}<a href="?page={{ page.previous_page_number }}">Previous</a>{% endif %}<span>Page {{ page.number }} of {{ page.paginator.num_pages }}</span>{% if page.has_next %}<a href="?page={{ page.next_page_number }}">Next</a>{% endif %}</nav>{% endif %}
+{% endblock %}

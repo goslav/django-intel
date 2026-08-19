@@ -1,0 +1,31 @@
+{% extends "vehicles/base.html" %}
+{% load dealer_format %}
+{% block title %}Dealer inventory activity{% endblock %}
+{% block content %}
+<h1>Most active dealers</h1>
+<p class="meta">Ranked by newly observed ads plus disappeared ads. A disappearance may indicate a sale, withdrawal, or expired advertisement; it is not proof of sale. Initial baseline inventory is excluded from additions.</p>
+<form method="get" class="panel filters">
+  <label>Activity window<select name="period"><option value="7" {% if period_days == 7 %}selected{% endif %}>Last 7 days</option><option value="30" {% if period_days == 30 %}selected{% endif %}>Last 30 days</option></select></label>
+  <div class="actions"><button type="submit">Apply</button></div>
+</form>
+<div class="stats section">
+  <div class="stat"><span>New inventory added</span>{{ total_additions }}</div>
+  <div class="stat"><span>Ads disappeared / possibly sold</span>{{ total_disappearances }}</div>
+  <div class="stat"><span>Dealers with activity</span>{{ active_dealer_count }}</div>
+</div>
+<section class="section table-wrap"><table>
+  <thead><tr><th>Rank</th><th>Dealer</th><th>New inventory</th><th>Disappeared / possibly sold</th><th>Total activity</th><th>Net inventory flow</th><th>New ads per week</th><th>Current inventory</th><th>Latest snapshot</th></tr></thead>
+  <tbody>{% for row in rows %}<tr>
+    <td>{{ forloop.counter }}</td>
+    <td><a href="{% url 'dealers:detail' row.dealer.pk %}">{{ row.dealer.name }}</a></td>
+    <td>{{ row.additions }}</td>
+    <td>{{ row.disappearances }}</td>
+    <td><strong>{{ row.total_activity }}</strong></td>
+    <td>{{ row.net_change|signed_dot_thousands }}</td>
+    <td>{{ row.additions_per_week|floatformat:1 }} <span class="meta">({{ row.observed_days }} observed day{{ row.observed_days|pluralize }})</span></td>
+    <td>{% if row.latest %}{{ row.latest.inventory_count }}{% else %}—{% endif %}</td>
+    <td>{% if row.latest %}{{ row.latest.observed_at|date:"Y-m-d H:i" }}{% else %}No completed snapshot{% endif %}</td>
+  </tr>{% empty %}<tr><td colspan="9">No active dealers configured.</td></tr>{% endfor %}</tbody>
+</table></section>
+<p class="meta">Activity calculated through {{ as_of|date:"Y-m-d H:i" }}.</p>
+{% endblock %}
