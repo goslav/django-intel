@@ -158,6 +158,19 @@ captured listing set, while each snapshot item stores the observed price, mileag
 status, timestamp, and raw source record. Browse dealer history at
 `/dealers/<dealer_id>/snapshots/`.
 
+Open `/dealers/` for the dealer dashboard and select a dealer to inspect its latest
+inventory and historical changes. The detail view shows newly observed and
+disappeared advertisements with first-registration year, captured asking price,
+mileage, observation timestamps, current presence, and links to the public ad.
+It also reports additions observed during the last 7 and 30 days and an average
+weekly replenishment rate. The initial baseline inventory is excluded from these
+replenishment counts.
+
+Open `/dealers/activity/` to rank active dealers over a 7- or 30-day window by new
+inventory, disappeared advertisements, total activity, net inventory flow, and
+weekly addition rate. A disappeared advertisement may have been sold, withdrawn,
+or expired, so the application never presents disappearance as a confirmed sale.
+
 Compare a make/model across the latest complete snapshots for all active dealers at
 `/dealers/compare/`. The comparison supports dealer, year, fuel, and transmission
 filters (including all dealers or any multi-selected subset), ranks the most
@@ -181,8 +194,10 @@ python manage.py test
 ```text
 config/                         Django project configuration and root routes
 vehicles/
-  management/commands/          CSV import command
+  management/commands/          Import, dealer seed, and daily refresh commands
   migrations/                   Database schema migrations
+  services/dealer_intelligence.py Dealer inventory collection and snapshots
+  services/dealer_comparison.py Cross-dealer comparison and activity analysis
   services/import_listings.py   Ingestion and validation logic
   services/market_analysis.py   Latest-price, comparable, and summary logic
   templates/vehicles/           Server-rendered pages and shared layout
@@ -193,7 +208,10 @@ vehicles/
 
 ## Current limitations
 
-- No marketplace scraper or automated import scheduling
+- Dealer collection depends on public storefront/detail pages and may require
+  parser updates when the source website changes
+- Daily automation is local-only through Windows Task Scheduler; there is no
+  deployed worker or hosted scheduler
 - No price charts, recommendations, or maximum-bid calculations
 - No confirmed sale-price data
 - No API or separate frontend
