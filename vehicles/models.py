@@ -345,3 +345,114 @@ class SourceSearchMembership(models.Model):
 
     class Meta:
         constraints = (models.UniqueConstraint(fields=("source_search", "listing"), name="unique_source_search_listing_membership"),)
+
+
+class Dealer(models.Model):
+    """A dealer whose complete inventory is collected from an API each day."""
+
+    class InventoryType(models.TextChoices):
+        USED = "used", "Used cars"
+        MIXED = "mixed", "Mixed new and used cars"
+        NEW = "new", "New cars only"
+
+    name = models.CharField(max_length=200)
+    source = models.CharField(max_length=50, db_index=True)
+    external_id = models.CharField(max_length=255)
+    api_url = models.URLField(max_length=2000)
+    api_token_env_var = models.CharField(max_length=100, blank=True)
+    price_bracket_size = models.PositiveIntegerField(default=5000)
+    inventory_type = models.CharField(
+        max_length=10, choices=InventoryType.choices, default=InventoryType.USED,
+        db_index=True,
+    )
+    is_active = models.BooleanField(default=True, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ("name", "pk")
+        constraints = (
+            models.UniqueConstraint(fields=("source", "external_id"), name="unique_dealer_source_external_id"),
+        )
+
+    def __str__(self):
+        return self.name
+
+
+class DealerInventorySnapshot(models.Model):
+    class Status(models.TextChoices):
+        RUNNING = "running", "Running"
+        COMPLETED = "completed", "Completed"
+        FAILED = "failed", "Failed"
+
+    dealer = models.ForeignKey(Dealer, on_delete=models.CASCADE, related_name="inventory_snapshots")
+    observed_at = models.DateTimeField(db_index=True)
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.RUNNING)
+    inventory_count = models.PositiveIntegerField(default=0)
+    median_price = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    dominant_price_bracket_low = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    dominant_price_bracket_high = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    dominant_price_bracket_count = models.PositiveIntegerField(default=0)
+    average_active_days = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    disappeared_count = models.PositiveIntegerField(default=0)
+    error_summary = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    listings = models.ManyToManyField(Listing, through="DealerSnapshotListing", related_name="dealer_snapshots")
+
+    class Meta:
+        ordering = ("-observed_at", "-pk")
+        constraints = (
+            models.UniqueConstraint(fields=("dealer", "observed_at"), name="unique_dealer_snapshot_time"),
+        )
+
+    def __str__(self):
+        return f"{self.dealer} at {self.observed_at}"
+
+    def save(self, *args, **kwargs):
+        if self.pk:
+            persisted = type(self).objects.filter(pk=self.pk).first()
+            if persisted and persisted.status == self.Status.COMPLETED:
+                tracked = (
+                    "dealer_id", "observed_at", "status", "inventory_count", "median_price",
+                    "dominant_price_bracket_low", "dominant_price_bracket_high",
+                    "dominant_price_bracket_count", "average_active_days", "disappeared_count",
+                    "error_summary",
+                )
+                if any(getattr(self, field) != getattr(persisted, field) for field in tracked):
+                    raise ValidationError("Completed dealer snapshots are immutable.")
+        return super().save(*args, **kwargs)
+
+
+class DealerSnapshotListing(models.Model):
+    snapshot = models.ForeignKey(DealerInventorySnapshot, on_delete=models.CASCADE, related_name="inventory_items")
+    listing = models.ForeignKey(Listing, on_delete=models.CASCADE, related_name="dealer_inventory_items")
+    asking_price = models.DecimalField(max_digits=12, decimal_places=2)
+    mileage = models.PositiveIntegerField()
+    status = models.CharField(max_length=10, choices=Listing.Status.choices, default=Listing.Status.ACTIVE)
+    observed_at = models.DateTimeField(db_index=True)
+    raw_data = models.JSONField(null=True, blank=True)
+
+    class Meta:
+        constraints = (
+            models.UniqueConstraint(fields=("snapshot", "listing"), name="unique_listing_per_dealer_snapshot"),
+        )
+
+    def save(self, *args, **kwargs):
+        if self.pk and type(self).objects.filter(pk=self.pk).exists():
+            raise ValidationError("Captured dealer snapshot listings are immutable.")
+        return super().save(*args, **kwargs)
+
+
+class DealerListingMembership(models.Model):
+    dealer = models.ForeignKey(Dealer, on_delete=models.CASCADE, related_name="listing_memberships")
+    listing = models.ForeignKey(Listing, on_delete=models.CASCADE, related_name="dealer_memberships")
+    first_seen_at = models.DateTimeField()
+    last_seen_at = models.DateTimeField()
+    disappeared_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    is_currently_present = models.BooleanField(default=True, db_index=True)
+    is_relevant = models.BooleanField(default=True, db_index=True)
+
+    class Meta:
+        constraints = (
+            models.UniqueConstraint(fields=("dealer", "listing"), name="unique_dealer_listing_membership"),
+        )

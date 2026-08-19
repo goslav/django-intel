@@ -25,5 +25,6 @@ urlpatterns = [
     path("market-profiles/", include("vehicles.profile_urls")),
     path("listings/", include("vehicles.listing_urls")),
     path("source-searches/", include("vehicles.source_search_urls")),
+    path("dealers/", include("vehicles.dealer_urls")),
     path("vehicles/", include("vehicles.urls")),
 ]

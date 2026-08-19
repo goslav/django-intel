@@ -1,0 +1,18 @@
+{% extends "vehicles/base.html" %}
+{% load dealer_format %}
+{% block title %}{{ dealer.name }} comparison vehicles{% endblock %}
+{% block content %}
+<p><a href="{% url 'dealers:model_comparison' %}{% if querystring %}?{{ querystring }}{% endif %}">← Back to cross-dealer comparison</a></p>
+<h1>{{ dealer.name }} matching vehicles</h1>
+<p class="meta">{{ filters.make }} {{ filters.model }}. Vehicles marked “no longer observed” disappeared from inventory; this does not confirm a sale.</p>
+{% if row %}<div class="stats"><div class="stat"><span>Current relevant stock</span>{{ row.stock_count }}</div><div class="stat"><span>Median asking price</span>€{{ row.median_price|dot_thousands }}</div><div class="stat"><span>Median ad days</span>{{ row.median_ad_age|floatformat:1 }}</div><div class="stat"><span>30-day apparent turnover</span>{% if row.apparent_turnover != None %}{{ row.apparent_turnover|floatformat:1 }}%{% else %}—{% endif %}</div><div class="stat"><span>30-day price reductions</span>{{ row.reduction_count }}</div></div>{% endif %}
+<div class="table-wrap section"><table>
+<thead><tr><th>Title</th><th>Year</th><th>Mileage</th><th>Asking price</th><th>Ad age</th><th>Price changes</th><th>Observation status</th><th>Original listing</th></tr></thead>
+<tbody>{% for vehicle in vehicles %}<tr>
+  <td>{{ vehicle.listing.title|default:vehicle.listing }}</td><td>{{ vehicle.listing.year }}</td><td>{{ vehicle.mileage|dot_thousands }} km</td><td>€{{ vehicle.asking_price|dot_thousands }}</td><td>{{ vehicle.ad_age }} days</td>
+  <td>{% if vehicle.price_reduction_count %}{{ vehicle.price_reduction_count }} reduction{{ vehicle.price_reduction_count|pluralize }}, €{{ vehicle.total_price_reduction|dot_thousands }} total{% else %}No reductions{% endif %}</td>
+  <td>{% if vehicle.is_disappeared %}<span class="status">No longer observed</span>{% else %}<span class="status active">Current</span>{% endif %}</td>
+  <td>{% if vehicle.listing.source_url %}<a href="{{ vehicle.listing.source_url }}" target="_blank" rel="noopener noreferrer">View on Polovni Automobili</a>{% else %}—{% endif %}</td>
+</tr>{% empty %}<tr><td colspan="8">No matching relevant vehicles.</td></tr>{% endfor %}</tbody>
+</table></div>
+{% endblock %}

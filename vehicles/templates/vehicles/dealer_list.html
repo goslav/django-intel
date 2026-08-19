@@ -1,0 +1,21 @@
+{% extends "vehicles/base.html" %}
+{% block title %}Dealer intelligence{% endblock %}
+{% block content %}
+<h1>Dealer intelligence</h1>
+<p class="meta">Daily inventory, pricing, advertisement age, and disappearance monitoring.</p>
+<p><a class="button" href="{% url 'dealers:activity' %}">View most active dealers</a></p>
+<div class="grid">
+{% for dealer in dealers %}
+<article class="card">
+  <h2><a href="{% url 'dealers:detail' dealer.pk %}">{{ dealer.name }}</a></h2>
+  {% if dealer.source == "polovniautomobili" %}<p><a href="{{ dealer.api_url }}" target="_blank" rel="noopener noreferrer">View on Polovni Automobili</a></p>{% endif %}
+  <p><span class="status{% if dealer.inventory_type != 'new' %} active{% endif %}">{{ dealer.get_inventory_type_display }}</span></p>
+  {% if dealer.latest_snapshot %}
+  <p class="price">{{ dealer.latest_snapshot.inventory_count }} active vehicles</p>
+  <p>Median: €{{ dealer.latest_snapshot.median_price|floatformat:0 }}</p>
+  <p class="meta">Updated {{ dealer.latest_snapshot.observed_at }}</p>
+  {% else %}<p>No snapshots yet.</p>{% endif %}
+</article>
+{% empty %}<p>No dealers configured. Add one in Django administration.</p>{% endfor %}
+</div>
+{% endblock %}

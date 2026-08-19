@@ -1,0 +1,108 @@
+{% extends "vehicles/base.html" %}
+{% load dealer_format %}
+{% block title %}{{ dealer.name }} intelligence{% endblock %}
+{% block content %}
+<h1>{{ dealer.name }}</h1>
+{% if dealer.source == "polovniautomobili" %}
+<p><a class="button" href="{{ dealer.api_url }}" target="_blank" rel="noopener noreferrer">View on Polovni Automobili</a></p>
+{% endif %}
+<p><span class="status{% if dealer.inventory_type != 'new' %} active{% endif %}">{{ dealer.get_inventory_type_display }}</span>{% if dealer.inventory_type == 'new' %} <span class="meta">Excluded from the used-car dealer set.</span>{% endif %}</p>
+<p><a href="{% url 'dealers:snapshot_history' dealer.pk %}">Open persistent snapshot history</a></p>
+{% if latest %}
+<p class="meta">Latest complete snapshot: {{ latest.observed_at }}</p>
+<div class="stats">
+  <div class="stat"><span>Relevant vehicles</span>{{ intelligence_summary.count|default:0 }}{% if excluded_count %} <small>({{ excluded_count }} excluded)</small>{% endif %}</div>
+  <div class="stat"><span>Median asking price</span>€{{ intelligence_summary.median_price|dot_thousands }}</div>
+  <div class="stat"><span>Most common price bracket</span>€{{ intelligence_summary.bracket_low|dot_thousands }}–€{{ intelligence_summary.bracket_high|dot_thousands }} ({{ intelligence_summary.bracket_count|default:0 }})</div>
+  <div class="stat"><span>Average ad age</span>{{ intelligence_summary.average_active_days|floatformat:1 }}</div>
+  <div class="stat"><span>Disappeared since prior snapshot</span>{% if previous_snapshot %}{{ snapshot_changes.disappeared }}{% else %}—<small class="meta"> No previous complete snapshot exists.</small>{% endif %}</div>
+</div>
+<section class="section"><h2>Changes since prior snapshot</h2>
+{% if comparison_options %}<form method="get" class="panel filters"><label>Compare current snapshot with<select name="compare_to">{% for option in comparison_options %}<option value="{{ option.pk }}" {% if comparison_snapshot.pk == option.pk %}selected{% endif %}>{{ option.observed_at|date:"Y-m-d H:i" }}</option>{% endfor %}</select></label><div class="actions"><button type="submit">Compare</button></div></form>{% endif %}
+{% if snapshot_changes %}<div class="stats">
+  <div class="stat"><span>New listings</span>{{ snapshot_changes.new }}</div>
+  <div class="stat"><span>Disappeared listings</span>{{ snapshot_changes.disappeared }}</div>
+  <div class="stat"><span>Price reductions</span>{{ snapshot_changes.reduced }}</div>
+  <div class="stat"><span>Price increases</span>{{ snapshot_changes.increased }}</div>
+  <div class="stat"><span>Inventory-count change</span>{{ snapshot_changes.inventory_change|signed_dot_thousands }}</div>
+  <div class="stat"><span>Median-price change</span>€{{ snapshot_changes.median_change|signed_dot_thousands }}</div>
+</div>
+<div class="grid"><div class="card"><h3>New vehicles</h3>{% if comparison_new_vehicles %}<ul>{% for vehicle in comparison_new_vehicles %}<li><a href="{% url 'market:listing_detail' vehicle.pk %}">{{ vehicle.title|default:vehicle }}</a></li>{% endfor %}</ul>{% else %}<p class="meta">None.</p>{% endif %}</div><div class="card"><h3>Disappeared vehicles</h3>{% if comparison_disappeared_items %}<div class="table-wrap"><table><thead><tr><th>Vehicle</th><th>First registration</th><th>Last asking price</th><th>Last mileage</th></tr></thead><tbody>{% for item in comparison_disappeared_items %}<tr><td><a href="{% url 'market:listing_detail' item.listing.pk %}">{{ item.listing.title|default:item.listing }}</a></td><td>{{ item.listing.year }}</td><td>â‚¬{{ item.asking_price|dot_thousands }}</td><td>{{ item.mileage|dot_thousands }} km</td></tr>{% endfor %}</tbody></table></div>{% else %}<p class="meta">None.</p>{% endif %}</div></div>
+{% else %}<p class="meta">No previous complete snapshot exists, so changes cannot be calculated yet.</p>{% endif %}
+</section>
+<section class="section"><h2>30/60/90-day summary</h2>
+<p class="meta">Changes from the most recent complete snapshot on or before each target date to the current complete snapshot.</p>
+<div class="table-wrap"><table><thead><tr><th>Period</th><th>Baseline snapshot</th><th>Inventory-count change</th><th>Median-price change</th><th>Average ad-age change</th></tr></thead><tbody>
+{% for period in period_summaries %}<tr><td>{{ period.days }} days</td><td>{% if period.baseline %}{{ period.baseline.snapshot.observed_at|date:"Y-m-d H:i" }}{% else %}—{% endif %}</td><td>{{ period.inventory_change|signed_dot_thousands }}</td><td>{% if period.median_change != None %}€{{ period.median_change|signed_dot_thousands }}{% else %}—{% endif %}</td><td>{% if period.ad_age_change != None %}{{ period.ad_age_change|floatformat:1 }} days{% else %}—{% endif %}</td></tr>{% endfor %}
+</tbody></table></div></section>
+<section class="section"><h2>Current inventory</h2>
+<div class="grid">
+  <div class="card"><h3>Top models</h3>{% if top_models %}<ol>{% for model, count in top_models %}<li>{{ model }} — {{ count }}</li>{% endfor %}</ol>{% else %}<p class="meta">No relevant vehicles.</p>{% endif %}</div>
+  <div class="card"><h3>Price-bracket distribution</h3>{% if price_brackets %}<ul>{% for bracket in price_brackets %}<li>€{{ bracket.low|dot_thousands }}–€{{ bracket.high|dot_thousands }} — {{ bracket.count }}</li>{% endfor %}</ul>{% else %}<p class="meta">No relevant vehicles.</p>{% endif %}</div>
+</div>
+<div class="grid">
+  <div class="card"><h3>Stock-age buckets</h3><ul>{% for label, count in stock_age_buckets.items %}<li>{{ label }} — {{ count }}</li>{% endfor %}</ul></div>
+  <div class="card"><h3>Models with oldest average stock</h3>{% if oldest_models %}<ol>{% for model, average, count in oldest_models %}<li>{{ model }} — {{ average|floatformat:1 }} days ({{ count }})</li>{% endfor %}</ol>{% else %}<p class="meta">No relevant vehicles.</p>{% endif %}</div>
+</div>
+<div class="table-wrap panel section"><h3>Model-level intelligence</h3>
+<p class="meta">Current relevant inventory{% if comparison_snapshot %}, with listing changes compared with {{ comparison_snapshot.observed_at|date:"Y-m-d H:i" }}{% endif %}. Apparent turnover is the percentage of prior listings that disappeared; disappearance does not confirm a sale.</p>
+<table><thead><tr><th>Make / model</th><th>Current stock</th><th>Average ad age</th><th>Median asking price</th><th>New listings</th><th>Disappeared listings</th><th>Apparent turnover</th></tr></thead><tbody>
+{% for row in model_summary %}<tr><td>{{ row.make }} {{ row.model }}</td><td>{{ row.current_count }}</td><td>{{ row.average_ad_age|floatformat:1|default:"—" }}</td><td>{% if row.median_price != None %}€{{ row.median_price|dot_thousands }}{% else %}—{% endif %}</td><td>{{ row.new_count|default_if_none:"—" }}</td><td>{{ row.disappeared_count|default_if_none:"—" }}</td><td>{% if row.apparent_turnover != None %}{{ row.apparent_turnover|floatformat:1 }}%{% else %}—{% endif %}</td></tr>{% empty %}<tr><td colspan="7">No relevant model data.</td></tr>{% endfor %}
+</tbody></table></div>
+<div class="table-wrap panel section"><h3>Slow stock</h3>
+<p class="meta">Current relevant vehicles with an ad age greater than 90 days, grouped by model.</p>
+{% if slow_stock_groups %}{% for group in slow_stock_groups %}<h4>{{ group.model }} — {{ group.vehicles|length }}</h4><table><thead><tr><th>Vehicle</th><th>Current price</th><th>Ad age</th><th>Recorded price reductions</th></tr></thead><tbody>{% for vehicle in group.vehicles %}<tr><td><a href="{% url 'market:listing_detail' vehicle.listing.pk %}">{{ vehicle.listing.title|default:vehicle.listing }}</a></td><td>€{{ vehicle.current_price|dot_thousands }}</td><td>{{ vehicle.ad_age }} days</td><td>{% if vehicle.reduction_count %}{{ vehicle.reduction_count }} reduction{{ vehicle.reduction_count|pluralize }} · €{{ vehicle.total_reduction|dot_thousands }} total{% else %}None recorded{% endif %}</td></tr>{% endfor %}</tbody></table>{% endfor %}{% else %}<p>No relevant vehicles have an ad age greater than 90 days.</p>{% endif %}
+</div>
+<div class="actions panel" aria-label="Inventory views">
+  <a class="button" href="?visibility=relevant&amp;sort={{ selected_sort }}&amp;page_size={{ page_size }}">Relevant ({{ intelligence_summary.count|default:0 }})</a>
+  <a class="button" href="?visibility=excluded&amp;sort={{ selected_sort }}&amp;page_size={{ page_size }}">Excluded ({{ excluded_count }})</a>
+  <a class="button" href="?visibility=all&amp;sort={{ selected_sort }}&amp;page_size={{ page_size }}">All ({{ latest.inventory_count }})</a>
+</div>
+<form method="get" class="filters panel">
+  <label>Sort inventory<select name="sort"><option value="mileage_asc" {% if selected_sort == "mileage_asc" %}selected{% endif %}>Lowest mileage first</option><option value="mileage_desc" {% if selected_sort == "mileage_desc" %}selected{% endif %}>Highest mileage first</option><option value="active_days_asc" {% if selected_sort == "active_days_asc" %}selected{% endif %}>Youngest ads first</option><option value="active_days_desc" {% if selected_sort == "active_days_desc" %}selected{% endif %}>Oldest ads first</option></select></label>
+  <label>Results per page<select name="page_size"><option value="50" {% if page_size == 50 %}selected{% endif %}>50</option><option value="100" {% if page_size == 100 %}selected{% endif %}>100</option><option value="200" {% if page_size == 200 %}selected{% endif %}>200</option></select></label>
+  <label>Visibility<select name="visibility"><option value="relevant" {% if visibility == "relevant" %}selected{% endif %}>Relevant only</option><option value="excluded" {% if visibility == "excluded" %}selected{% endif %}>Excluded only</option><option value="all" {% if visibility == "all" %}selected{% endif %}>All vehicles</option></select></label>
+  <div class="actions"><button type="submit">Apply</button></div>
+</form>
+<form method="post" id="bulk-inventory-form">{% csrf_token %}<input type="hidden" name="return_visibility" value="{{ visibility }}">
+<div class="actions panel"><button type="submit" name="bulk_action" value="exclude">Exclude selected</button><button type="submit" name="bulk_action" value="restore">Restore selected</button><span class="meta" id="selection-count">0 selected</span></div>
+<div class="table-wrap"><table>
+<thead><tr><th><input type="checkbox" id="select-all" aria-label="Select all vehicles on this page"></th><th>Vehicle</th><th>Year</th><th><a href="?sort={% if selected_sort == 'mileage_asc' %}mileage_desc{% else %}mileage_asc{% endif %}&amp;page_size={{ page_size }}&amp;visibility={{ visibility }}">Mileage {% if selected_sort == "mileage_asc" %}↑{% elif selected_sort == "mileage_desc" %}↓{% endif %}</a></th><th>Price</th><th><a href="?sort={% if selected_sort == 'active_days_asc' %}active_days_desc{% else %}active_days_asc{% endif %}&amp;page_size={{ page_size }}&amp;visibility={{ visibility }}">Ad age {% if selected_sort == "active_days_asc" %}↑{% elif selected_sort == "active_days_desc" %}↓{% endif %}</a></th><th>First observed</th><th>Status / action</th></tr></thead><tbody>
+{% for item in inventory_page %}<tr><td><input type="checkbox" name="listing_ids" value="{{ item.listing_id }}" class="vehicle-select" aria-label="Select {{ item.listing.title|default:item.listing }}"></td><td><a href="{% url 'market:listing_detail' item.listing.pk %}">{{ item.listing.title|default:item.listing }}</a> {% if item.listing_id in new_listing_ids %}<span class="status active">New</span>{% endif %} {% if item.listing_id in reduced_listing_ids %}<span class="status active">Price reduced</span>{% endif %} {% if item.listing_id in increased_listing_ids %}<span class="status">Price increased</span>{% endif %}</td><td>{{ item.listing.year }}</td><td>{{ item.mileage|dot_thousands }} km</td><td>€{{ item.asking_price|dot_thousands }}</td><td>{{ item.active_days }}</td><td>{{ item.listing.first_seen_at|date:"Y-m-d" }}</td><td>{% if item.listing_id in relevant_listing_ids %}<span class="status active">Relevant</span>{% else %}<button type="submit" name="restore_listing_id" value="{{ item.listing_id }}">Restore</button>{% endif %}</td></tr>{% endfor %}
+</tbody></table></div></form>
+{% if inventory_page.paginator.num_pages > 1 %}<nav class="pagination" aria-label="Inventory pages">{% if inventory_page.has_previous %}<a href="?{% if querystring %}{{ querystring }}&amp;{% endif %}page={{ inventory_page.previous_page_number }}">Previous</a>{% endif %}<span class="current">{{ inventory_page.number }} / {{ inventory_page.paginator.num_pages }}</span>{% if inventory_page.has_next %}<a href="?{% if querystring %}{{ querystring }}&amp;{% endif %}page={{ inventory_page.next_page_number }}">Next</a>{% endif %}</nav>{% endif %}
+</section>
+<section class="section"><h2>Snapshot history</h2><div class="table-wrap"><table><thead><tr><th>Date/time</th><th>Relevant inventory</th><th>Median asking price</th><th>Average ad age</th><th>New listings</th><th>Disappeared listings</th><th></th></tr></thead><tbody>
+{% for row in snapshot_history %}<tr><td>{{ row.snapshot.observed_at|date:"Y-m-d H:i" }}</td><td>{{ row.relevant_count }}</td><td>€{{ row.median_price|dot_thousands }}</td><td>{{ row.average_ad_age|floatformat:1|default:"—" }}</td><td>{{ row.new_count|default_if_none:"—" }}</td><td>{{ row.disappeared_count|default_if_none:"—" }}</td><td><a href="?snapshot={{ row.snapshot.pk }}">Open</a></td></tr>{% endfor %}
+</tbody></table></div></section>
+{% if selected_snapshot_detail %}<section class="section panel"><h2>Snapshot from {{ selected_snapshot_detail.snapshot.observed_at|date:"Y-m-d H:i" }}</h2><p>{{ selected_snapshot_detail.relevant_count }} relevant vehicles · Median €{{ selected_snapshot_detail.median_price|dot_thousands }} · Average ad age {{ selected_snapshot_detail.average_ad_age|floatformat:1 }}</p><div class="table-wrap"><table><thead><tr><th>Vehicle</th><th>Year</th><th>Mileage</th><th>Asking price</th></tr></thead><tbody>{% for item in selected_snapshot_detail.items %}<tr><td><a href="{% url 'market:listing_detail' item.listing.pk %}">{{ item.listing.title|default:item.listing }}</a></td><td>{{ item.listing.year }}</td><td>{{ item.mileage|dot_thousands }} km</td><td>€{{ item.asking_price|dot_thousands }}</td></tr>{% endfor %}</tbody></table></div></section>{% endif %}
+<section class="section"><h2>Recently added ads</h2>
+<p class="meta">New means first observed in this monitoring system. It may be later than the original Polovni Automobili posting time.</p>
+{% if replenishment %}<div class="stats">
+  <div class="stat"><span>New ads observed in 7 days</span>{{ replenishment.additions_7d }}</div>
+  <div class="stat"><span>New ads observed in 30 days</span>{{ replenishment.additions_30d }}</div>
+  <div class="stat"><span>Average additions per week</span>{{ replenishment.average_per_week|floatformat:1 }}<small> Across {{ replenishment.rate_window_days }} monitored day{{ replenishment.rate_window_days|pluralize }}.</small></div>
+</div>{% endif %}
+{% if recently_added %}<div class="table-wrap"><table><thead><tr><th>Vehicle</th><th>First registration</th><th>Asking price</th><th>Mileage</th><th>First observed</th><th>Inventory status</th><th>Ad</th></tr></thead><tbody>{% for row in recently_added %}<tr><td><a href="{% url 'market:listing_detail' row.membership.listing.pk %}">{{ row.membership.listing }}</a></td><td>{{ row.membership.listing.year }}</td><td>{% if row.captured_item %}€{{ row.captured_item.asking_price|dot_thousands }}{% else %}—{% endif %}</td><td>{% if row.captured_item %}{{ row.captured_item.mileage|dot_thousands }} km{% else %}—{% endif %}</td><td>{{ row.membership.first_seen_at }}</td><td>{% if row.membership.is_currently_present %}<span class="status active">Present</span>{% else %}<span class="status">Disappeared</span>{% endif %}</td><td>{% if row.membership.listing.source_url %}<a href="{{ row.membership.listing.source_url }}" target="_blank" rel="noopener noreferrer">Open on Polovni</a>{% else %}—{% endif %}</td></tr>{% endfor %}</tbody></table></div>{% else %}<p>No advertisements have been observed for this dealer.</p>{% endif %}
+</section>
+<section class="section"><h2>Recently disappeared</h2>
+{% if recently_disappeared %}<div class="table-wrap"><table><thead><tr><th>Vehicle</th><th>First registration</th><th>Last asking price</th><th>Last mileage</th><th>Last seen</th><th>Disappeared</th></tr></thead><tbody>{% for row in recently_disappeared %}<tr><td><a href="{% url 'market:listing_detail' row.membership.listing.pk %}">{{ row.membership.listing }}</a></td><td>{{ row.membership.listing.year }}</td><td>{% if row.captured_item %}â‚¬{{ row.captured_item.asking_price|dot_thousands }}{% else %}â€”{% endif %}</td><td>{% if row.captured_item %}{{ row.captured_item.mileage|dot_thousands }} km{% else %}â€”{% endif %}</td><td>{{ row.membership.last_seen_at }}</td><td>{{ row.membership.disappeared_at }}</td></tr>{% endfor %}</tbody></table></div>{% else %}<p>No disappeared advertisements recorded.</p>{% endif %}
+</section>
+{% else %}<p>No complete inventory snapshot exists yet.</p>{% endif %}
+<script>
+(() => {
+  const all = document.getElementById("select-all");
+  const boxes = [...document.querySelectorAll(".vehicle-select")];
+  const count = document.getElementById("selection-count");
+  if (!all || !count) return;
+  const update = () => {
+    const selected = boxes.filter(box => box.checked).length;
+    count.textContent = `${selected} selected`;
+    all.checked = boxes.length > 0 && selected === boxes.length;
+    all.indeterminate = selected > 0 && selected < boxes.length;
+  };
+  all.addEventListener("change", () => { boxes.forEach(box => box.checked = all.checked); update(); });
+  boxes.forEach(box => box.addEventListener("change", update));
+})();
+</script>
+{% endblock %}

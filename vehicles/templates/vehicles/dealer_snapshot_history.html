@@ -1,0 +1,10 @@
+{% extends "vehicles/base.html" %}{% load dealer_format %}
+{% block title %}{{ dealer.name }} snapshot history{% endblock %}
+{% block content %}
+<p><a href="{% url 'dealers:detail' dealer.pk %}">← Back to dealer intelligence</a></p>
+<h1>{{ dealer.name }} snapshot history</h1>
+<p class="meta">Completed captures are preserved as immutable historical records.</p>
+<div class="table-wrap"><table><thead><tr><th>Date/time</th><th>Captured inventory</th><th>Median asking price</th><th>Average ad age</th><th>Disappeared</th><th></th></tr></thead><tbody>
+{% for snapshot in page %}<tr><td>{{ snapshot.observed_at|date:"Y-m-d H:i" }}</td><td>{{ snapshot.inventory_count }}</td><td>€{{ snapshot.median_price|dot_thousands }}</td><td>{{ snapshot.average_active_days|floatformat:1 }}</td><td>{{ snapshot.disappeared_count }}</td><td><a href="{% url 'dealers:snapshot_detail' dealer.pk snapshot.pk %}">Open snapshot</a></td></tr>{% empty %}<tr><td colspan="6">No complete snapshots.</td></tr>{% endfor %}
+</tbody></table></div>
+{% endblock %}

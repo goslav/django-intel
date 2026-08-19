@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import ImportRun, Listing, ListingSnapshot, MarketProfile, SourceSearch, SourceSearchMembership, SourceSearchRun, SourceSearchRunListing, Vehicle
+from .models import Dealer, DealerInventorySnapshot, DealerListingMembership, DealerSnapshotListing, ImportRun, Listing, ListingSnapshot, MarketProfile, SourceSearch, SourceSearchMembership, SourceSearchRun, SourceSearchRunListing, Vehicle
 
 
 @admin.register(Vehicle)
@@ -125,3 +125,31 @@ class SourceSearchAdmin(admin.ModelAdmin):
 admin.site.register(SourceSearchRun)
 admin.site.register(SourceSearchRunListing)
 admin.site.register(SourceSearchMembership)
+@admin.register(Dealer)
+class DealerAdmin(admin.ModelAdmin):
+    list_display = ("name", "source", "external_id", "inventory_type", "is_active", "updated_at")
+    list_filter = ("inventory_type", "is_active", "source")
+    search_fields = ("name", "external_id", "api_url")
+@admin.register(DealerInventorySnapshot)
+class DealerInventorySnapshotAdmin(admin.ModelAdmin):
+    list_display = ("dealer", "observed_at", "status", "inventory_count", "median_price")
+    readonly_fields = [field.name for field in DealerInventorySnapshot._meta.fields]
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(DealerSnapshotListing)
+class DealerSnapshotListingAdmin(admin.ModelAdmin):
+    list_display = ("snapshot", "listing", "asking_price", "mileage", "status", "observed_at")
+    readonly_fields = [field.name for field in DealerSnapshotListing._meta.fields]
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+admin.site.register(DealerListingMembership)

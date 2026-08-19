@@ -20,6 +20,7 @@
         .filters { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .8rem; }
         label { display: grid; gap: .3rem; font-size: .9rem; font-weight: 600; }
         input, select, button { width: 100%; padding: .6rem; border: 1px solid #aeb7c2; border-radius: .35rem; background: white; font: inherit; }
+        input[type="checkbox"] { width: auto; padding: 0; transform: scale(1.15); }
         button, .button { background: #1769aa; color: white; border: 0; cursor: pointer; text-decoration: none; display: inline-block; padding: .65rem 1rem; border-radius: .35rem; width: auto; }
         .actions { display: flex; align-items: end; gap: .6rem; }
         .grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; margin-top: 1rem; }
@@ -56,6 +57,9 @@
             <a href="{% url 'market_profiles:list' %}">Market profiles</a>
             <a href="{% url 'classification_review' %}">Classification review</a>
             <a href="{% url 'source_search_list' %}">Source searches</a>
+            <a href="{% url 'dealers:list' %}">Dealers</a>
+            <a href="{% url 'dealers:activity' %}">Dealer activity</a>
+            <a href="{% url 'dealers:model_comparison' %}">Compare dealers</a>
             <a href="{% url 'vehicles:vehicle_list' %}">Manual vehicles</a>
             <a href="{% url 'admin:index' %}">Admin</a>
         </nav>

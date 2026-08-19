@@ -12,6 +12,13 @@
     {% with original_url=listing|pa_public_url %}{% if original_url %}<a class="button" href="{{ original_url }}" target="_blank" rel="noopener noreferrer">Open original advertisement</a>{% endif %}{% endwith %}
 </section>
 
+{% if dealer_membership %}<section class="section panel">
+    <h2>Dealer observation status</h2>
+    <p><a href="{% url 'dealers:detail' dealer_membership.dealer.pk %}">{{ dealer_membership.dealer.name }}</a></p>
+    <p>First appeared in monitoring: <strong>{{ dealer_membership.first_seen_at|date:"j M Y, H:i" }}</strong></p>
+    {% if dealer_membership.disappeared_at %}<p>Disappeared from dealer inventory: <strong>{{ dealer_membership.disappeared_at|date:"j M Y, H:i" }}</strong></p>{% else %}<p>Currently present in dealer inventory.</p>{% endif %}
+</section>{% endif %}
+
 <section class="section">
     <h2>Comparable listings</h2>
     <p class="meta">Same make, model, and fuel; year and mileage within the selected tolerances. Only active advertisements with a current asking price are included.</p>
@@ -46,7 +53,7 @@
 </section>
 
 <section class="section">
-    <h2>Price history</h2>
+    <h2>Observed price history</h2>
     {% if history %}
     <div class="table-wrap panel">
         <table>
