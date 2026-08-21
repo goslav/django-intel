@@ -116,7 +116,7 @@ python manage.py seed_tracked_dealers
 The seed is idempotent and updates matching dealers by storefront URL or stable
 Polovni identifier. AK Kompresor is retained and labelled as new-cars-only;
 Kia Centar and Auto Nena Still Peugeot are labelled as mixed new-and-used dealers;
-Autoland is tracked separately as a used-car dealer. You can also create a dealer in Django administration with its API URL, source, external dealer
+Autoland is tracked separately as a used-car dealer. Holliday is marked as the QA dealer for validating collection behavior. You can also create a dealer in Django administration with its API URL, source, external dealer
 ID, and desired price-bracket size. The API must return a JSON array (or an object
 with a `vehicles` array) containing `external_id`, `make`, `model`, `year`,
 `mileage`, `fuel`, and `asking_price`. Optional fields are `title`, `source_url`,
@@ -145,6 +145,18 @@ not yet have a successful snapshot that day. Validation, listing updates, and th
 new snapshot are committed atomically; partial or failed responses do not replace
 the last successful state.
 
+The single-dealer command follows the same daily limit and skips a dealer that
+already has a completed snapshot for the requested local calendar day.
+
+Daily automation includes every dealer marked active. Dealers added through the
+tracked-dealer seed list or Django administration are therefore included in the
+next daily batch automatically; the Windows scheduled task does not need to be
+updated for each new dealer.
+
+Dealer snapshots are source-specific. For example, the British Motors dealer
+record tracks its Polovni Automobili storefront only; inventory published on the
+dealer's separate `bmpolovnavozila.rs` platform is not included in these totals.
+
 For Windows Task Scheduler, create a daily task whose **Program/script** is the
 project virtual environment's Python executable, for example
 `C:\path\to\django-intel\.venv\Scripts\python.exe`. Set **Add arguments** to
@@ -157,6 +169,16 @@ Completed captures are never overwritten. Each snapshot preserves its summary an
 captured listing set, while each snapshot item stores the observed price, mileage,
 status, timestamp, and raw source record. Browse dealer history at
 `/dealers/<dealer_id>/snapshots/`.
+
+For Polovni Automobili dealers, the collector checks the transient `description`
+(`Opis`) text for service/commission-sale and new/unused-vehicle wording. Only the
+resulting reasons are saved, not the description. Use the **Opis flagged** dealer
+inventory view to review those ads and exclude or later restore selected vehicles.
+To rescan the currently present ads without creating a snapshot, run:
+
+```powershell
+python manage.py refresh_dealer_description_flags <dealer_id>
+```
 
 Open `/dealers/` for the dealer dashboard and select a dealer to inspect its latest
 inventory and historical changes. The detail view shows newly observed and

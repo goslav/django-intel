@@ -127,8 +127,8 @@ admin.site.register(SourceSearchRunListing)
 admin.site.register(SourceSearchMembership)
 @admin.register(Dealer)
 class DealerAdmin(admin.ModelAdmin):
-    list_display = ("name", "source", "external_id", "inventory_type", "is_active", "updated_at")
-    list_filter = ("inventory_type", "is_active", "source")
+    list_display = ("name", "source", "external_id", "inventory_type", "is_qa", "is_active", "updated_at")
+    list_filter = ("inventory_type", "is_qa", "is_active", "source")
     search_fields = ("name", "external_id", "api_url")
 @admin.register(DealerInventorySnapshot)
 class DealerInventorySnapshotAdmin(admin.ModelAdmin):

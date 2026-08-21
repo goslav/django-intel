@@ -548,7 +548,7 @@ def dealer_detail(request, dealer_id):
     dealer = get_object_or_404(Dealer, pk=dealer_id)
     if request.method == "POST":
         return_visibility = request.POST.get("return_visibility", "relevant")
-        if return_visibility not in {"relevant", "excluded", "all"}:
+        if return_visibility not in {"relevant", "flagged", "excluded", "all"}:
             return_visibility = "relevant"
         restore_listing_id = request.POST.get("restore_listing_id")
         listing_ids = [restore_listing_id] if restore_listing_id else request.POST.getlist("listing_ids")
@@ -612,7 +612,7 @@ def dealer_detail(request, dealer_id):
     if page_size not in (50, 100, 200):
         page_size = 100
     visibility = request.GET.get("visibility", "relevant")
-    if visibility not in {"relevant", "excluded", "all"}:
+    if visibility not in {"relevant", "flagged", "excluded", "all"}:
         visibility = "relevant"
     inventory = latest.inventory_items.select_related("listing") if latest else []
     if latest and visibility == "relevant":
@@ -625,14 +625,21 @@ def dealer_detail(request, dealer_id):
             listing__dealer_memberships__dealer=dealer,
             listing__dealer_memberships__is_relevant=False,
         )
+    elif latest and visibility == "flagged":
+        inventory = inventory.exclude(
+            listing__dealer_memberships__dealer=dealer,
+            listing__dealer_memberships__description_flags=[],
+        )
     inventory = list(inventory)
-    inventory_membership_dates = dict(dealer.listing_memberships.filter(
+    inventory_memberships = {membership.listing_id: membership for membership in dealer.listing_memberships.filter(
         listing_id__in=[item.listing_id for item in inventory]
-    ).values_list("listing_id", "first_seen_at"))
+    )}
     as_of = timezone.localdate(latest.observed_at) if latest else timezone.localdate()
     for item in inventory:
-        active_since = item.listing.published_at or timezone.localdate(inventory_membership_dates[item.listing_id])
+        membership = inventory_memberships[item.listing_id]
+        active_since = item.listing.published_at or timezone.localdate(membership.first_seen_at)
         item.active_days = max((as_of - active_since).days, 0)
+        item.description_flags = membership.description_flags
     sort_field = "mileage" if selected_sort.startswith("mileage") else "active_days"
     inventory.sort(key=lambda item: (getattr(item, sort_field), item.pk), reverse=selected_sort.endswith("desc"))
     inventory_page = Paginator(inventory, page_size).get_page(request.GET.get("page"))
@@ -686,6 +693,7 @@ def dealer_detail(request, dealer_id):
             "rate_window_days": rate_window_days,
         }
     excluded_count = dealer.listing_memberships.filter(is_relevant=False, is_currently_present=True).count()
+    description_flagged_count = dealer.listing_memberships.exclude(description_flags=[]).filter(is_currently_present=True).count()
     relevant_items = list(latest.inventory_items.filter(
         listing__dealer_memberships__dealer=dealer,
         listing__dealer_memberships__is_relevant=True,
@@ -829,7 +837,8 @@ def dealer_detail(request, dealer_id):
         "recently_disappeared": recently_disappeared,
         "recently_added": recently_added, "replenishment": replenishment,
         "visibility": visibility,
-        "excluded_count": excluded_count, "intelligence_summary": intelligence_summary,
+        "excluded_count": excluded_count, "description_flagged_count": description_flagged_count,
+        "intelligence_summary": intelligence_summary,
         "relevant_listing_ids": relevant_listing_ids,
         "previous_snapshot": comparison_snapshot, "snapshot_changes": snapshot_changes,
         "comparison_snapshot": comparison_snapshot, "comparison_options": comparison_options,

@@ -8,6 +8,7 @@ from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.test import TestCase
 from django.urls import reverse
+from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 
 from .models import Dealer, DealerInventorySnapshot, DealerListingMembership, Listing
@@ -119,6 +120,21 @@ class DealerIntelligenceTests(TestCase):
         self.assertRedirects(restore_response, f"{url}?visibility=excluded")
         membership.refresh_from_db()
         self.assertTrue(membership.is_relevant)
+
+    def test_description_flag_is_visible_and_filterable_without_description_storage(self):
+        snapshot = ingest_dealer_inventory(self.dealer, [
+            self.record("flagged", "10000", description_flags=["Service/commission sale wording"]),
+            self.record("ordinary", "11000"),
+        ])
+        membership = self.dealer.listing_memberships.get(listing__external_id="flagged")
+        self.assertEqual(membership.description_flags, ["Service/commission sale wording"])
+        self.assertNotIn("description", snapshot.inventory_items.get(listing__external_id="flagged").raw_data)
+
+        response = self.client.get(reverse("dealers:detail", args=(self.dealer.pk,)), {"visibility": "flagged"})
+
+        self.assertContains(response, "Opis flagged: Service/commission sale wording")
+        self.assertContains(response, "Vehicle flagged")
+        self.assertNotContains(response, "Vehicle ordinary")
 
     def test_dashboard_shows_and_sorts_active_days(self):
         ingest_dealer_inventory(self.dealer, [
@@ -433,6 +449,19 @@ class RefreshActiveDealersCommandTests(TestCase):
         self.assertEqual(self.active.inventory_snapshots.count(), 1)
         self.assertFalse(self.inactive.inventory_snapshots.exists())
 
+    @patch("vehicles.management.commands.refresh_dealer.refresh_dealer")
+    def test_direct_refresh_skips_a_completed_day(self, refresh):
+        DealerInventorySnapshot.objects.create(
+            dealer=self.active, observed_at=timezone.now(),
+            status=DealerInventorySnapshot.Status.COMPLETED,
+        )
+        output = StringIO()
+
+        call_command("refresh_dealer", self.active.pk, stdout=output)
+
+        refresh.assert_not_called()
+        self.assertIn("already refreshed", output.getvalue())
+
     @patch("vehicles.management.commands.refresh_active_dealers.refresh_dealer")
     def test_failure_does_not_stop_other_dealers_or_replace_success(self, refresh):
         second = Dealer.objects.create(
@@ -472,7 +501,7 @@ class SeedTrackedDealersCommandTests(TestCase):
         call_command("seed_tracked_dealers", stdout=StringIO())
         call_command("seed_tracked_dealers", stdout=StringIO())
 
-        self.assertEqual(Dealer.objects.filter(source="polovniautomobili").count(), 11)
+        self.assertEqual(Dealer.objects.filter(source="polovniautomobili").count(), 14)
         kia.refresh_from_db()
         self.assertEqual(kia.external_id, "Service-Maxx")
         self.assertEqual(kia.name, "KIA CENTAR BEOGRAD")
@@ -487,6 +516,12 @@ class SeedTrackedDealersCommandTests(TestCase):
         nena = Dealer.objects.get(external_id="auto-nena-still-peugeot")
         self.assertTrue(nena.is_active)
         self.assertEqual(nena.inventory_type, Dealer.InventoryType.MIXED)
+        arena = Dealer.objects.get(external_id="arena-auto")
+        self.assertTrue(arena.is_active)
+        self.assertEqual(arena.inventory_type, Dealer.InventoryType.USED)
+        british_motors = Dealer.objects.get(external_id="british-motors-polovna-vozila")
+        self.assertTrue(british_motors.is_active)
+        self.assertEqual(british_motors.inventory_type, Dealer.InventoryType.USED)
         emil_frey = Dealer.objects.get(external_id="emil-frey-auto-centar")
         self.assertTrue(emil_frey.is_active)
         self.assertEqual(emil_frey.inventory_type, Dealer.InventoryType.USED)
@@ -496,6 +531,10 @@ class SeedTrackedDealersCommandTests(TestCase):
         delta = Dealer.objects.get(external_id="delta-polovni-automobili")
         self.assertTrue(delta.is_active)
         self.assertEqual(delta.inventory_type, Dealer.InventoryType.USED)
+        holliday = Dealer.objects.get(external_id="holliday")
+        self.assertTrue(holliday.is_active)
+        self.assertTrue(holliday.is_qa)
+        self.assertEqual(holliday.inventory_type, Dealer.InventoryType.USED)
 
 
 class CrossDealerModelComparisonTests(TestCase):

@@ -365,6 +365,7 @@ class Dealer(models.Model):
         max_length=10, choices=InventoryType.choices, default=InventoryType.USED,
         db_index=True,
     )
+    is_qa = models.BooleanField(default=False, db_index=True)
     is_active = models.BooleanField(default=True, db_index=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -451,6 +452,7 @@ class DealerListingMembership(models.Model):
     disappeared_at = models.DateTimeField(null=True, blank=True, db_index=True)
     is_currently_present = models.BooleanField(default=True, db_index=True)
     is_relevant = models.BooleanField(default=True, db_index=True)
+    description_flags = models.JSONField(default=list, blank=True)
 
     class Meta:
         constraints = (

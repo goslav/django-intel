@@ -1,6 +1,9 @@
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal, InvalidOperation
+from html import unescape
+import re
+import unicodedata
 
 import httpx
 from django.utils.dateparse import parse_date, parse_datetime
@@ -33,6 +36,20 @@ class DetailRecord:
     renew_date: date | None
     condition_new: bool
     status: str
+    description: str
+
+
+def description_flags(description: str) -> list[str]:
+    """Classify Opis text without retaining it."""
+    plain = re.sub(r"<[^>]+>", " ", unescape(str(description or "")))
+    normalized = unicodedata.normalize("NFKD", plain).encode("ascii", "ignore").decode().casefold()
+    normalized = re.sub(r"\s+", " ", normalized)
+    flags = []
+    if re.search(r"\b(usluzna|komisiona)\s+prodaja\b|\bprodaja\s+za\s+racun\s+vlasnika\b", normalized):
+        flags.append("Service/commission sale wording")
+    if re.search(r"\b(novo|nekorisceno)\s+vozilo\b|\bnova\s+vozila\b|\bvozilo\s+(je\s+)?nekorisceno\b", normalized):
+        flags.append("New/unused vehicle wording")
+    return flags
 
 
 def _text(value):
@@ -70,6 +87,8 @@ def normalize_detail(payload: dict, expected_id: str) -> DetailRecord:
     external_id = str(payload.get("id") or "")
     if external_id != str(expected_id):
         raise CollectionError("Detail response advertisement ID did not match the requested ID.")
+    if payload.get("price") in (None, ""):
+        raise CollectionError("Detail response has no asking price.")
     try:
         year = int(payload["year"])
         mileage = int(str(payload["mileage"]).replace(".", "").replace(",", ""))
@@ -94,6 +113,7 @@ def normalize_detail(payload: dict, expected_id: str) -> DetailRecord:
         _text(payload.get("priceCurrency")), _source_date(payload.get("publishDate")),
         _source_date(payload.get("renewDate")), bool(payload.get("conditionNew")),
         _text(payload.get("status")),
+        str(payload.get("description") or ""),
     )
 
 
