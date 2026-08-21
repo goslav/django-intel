@@ -17,7 +17,7 @@ from vehicles.sources.polovni_automobili.search_results import (
     CollectionError, canonicalize_public_ad_url, canonicalize_thumbnail_url, discover_advertisements,
     parse_search_page, public_ad_url_fallback, resolve_public_ad_url,
 )
-from vehicles.sources.polovni_automobili.detail_record import normalize_detail, normalize_fuel
+from vehicles.sources.polovni_automobili.detail_record import description_flags, normalize_detail, normalize_fuel
 from vehicles.models import MarketProfile
 
 
@@ -103,6 +103,17 @@ class SearchDiscoveryTests(TestCase):
         record = normalize_detail({**detail_payload(), "fuel": "Dizel"}, "101")
         self.assertEqual(record.fuel, "diesel")
         self.assertEqual(record.source_fuel, "Dizel")
+
+    def test_opis_flags_service_sales_and_new_vehicles(self):
+        self.assertEqual(
+            description_flags("<p>Uslužna prodaja. Nekorišćeno vozilo.</p>"),
+            ["Service/commission sale wording", "New/unused vehicle wording"],
+        )
+        self.assertEqual(description_flags("Redovno održavan automobil."), [])
+
+    def test_detail_without_published_price_is_identified_separately(self):
+        with self.assertRaisesMessage(CollectionError, "Detail response has no asking price"):
+            normalize_detail({**detail_payload(), "price": None}, "101")
 
     def test_search_url_validation_and_ad_url_rejection(self):
         SourceSearch(name="Valid", search_url=SEARCH_URL).full_clean()

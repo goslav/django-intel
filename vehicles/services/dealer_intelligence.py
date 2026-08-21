@@ -17,9 +17,9 @@ from vehicles.models import (
     Dealer, DealerInventorySnapshot, DealerListingMembership, DealerSnapshotListing,
     ImportRun, Listing, ListingSnapshot,
 )
-from vehicles.sources.polovni_automobili.detail_record import fetch_detail
+from vehicles.sources.polovni_automobili.detail_record import description_flags, fetch_detail
 from vehicles.sources.polovni_automobili.search_results import (
-    USER_AGENT, canonicalize_public_ad_url,
+    CollectionError, USER_AGENT, canonicalize_public_ad_url,
 )
 
 
@@ -116,6 +116,10 @@ def _fetch_polovni_inventory(dealer_url: str) -> list[dict]:
         for listing_id, public_url in advertisements.items():
             try:
                 detail = fetch_detail(listing_id, client=client)
+            except CollectionError as exc:
+                if str(exc) == "Detail response has no asking price.":
+                    continue
+                raise DealerAPIError(f"Could not fetch advertisement {listing_id}: {exc}") from exc
             except Exception as exc:
                 raise DealerAPIError(f"Could not fetch advertisement {listing_id}: {exc}") from exc
             records.append({
@@ -125,6 +129,7 @@ def _fetch_polovni_inventory(dealer_url: str) -> list[dict]:
                 "mileage": detail.mileage, "fuel": detail.fuel or "unknown", "transmission": detail.gearbox,
                 "asking_price": str(detail.price),
                 "published_at": detail.publish_date.isoformat() if detail.publish_date else None,
+                "description_flags": description_flags(detail.description),
             })
         return records
     finally:
@@ -154,6 +159,7 @@ def _normalize(record):
             "thumbnail_url": str(record.get("thumbnail_url", "")).strip(),
             "transmission": str(record.get("transmission", "")).strip(),
             "published_at": parse_date(str(record["published_at"])) if record.get("published_at") else None,
+            "description_flags": list(record.get("description_flags") or []),
             "raw": record,
         }
     except (TypeError, ValueError, InvalidOperation) as exc:
@@ -192,6 +198,7 @@ def ingest_dealer_inventory(dealer: Dealer, records: list[dict], *, observed_at=
             defaults={"first_seen_at": observed_at, "last_seen_at": observed_at},
         )
         membership.last_seen_at, membership.is_currently_present, membership.disappeared_at = observed_at, True, None
+        membership.description_flags = item["description_flags"]
         membership.save()
         DealerSnapshotListing.objects.create(
             snapshot=snapshot, listing=listing, asking_price=item["asking_price"],

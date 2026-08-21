@@ -9,7 +9,7 @@
 <article class="card">
   <h2><a href="{% url 'dealers:detail' dealer.pk %}">{{ dealer.name }}</a></h2>
   {% if dealer.source == "polovniautomobili" %}<p><a href="{{ dealer.api_url }}" target="_blank" rel="noopener noreferrer">View on Polovni Automobili</a></p>{% endif %}
-  <p><span class="status{% if dealer.inventory_type != 'new' %} active{% endif %}">{{ dealer.get_inventory_type_display }}</span></p>
+  <p><span class="status{% if dealer.inventory_type != 'new' %} active{% endif %}">{{ dealer.get_inventory_type_display }}</span>{% if dealer.is_qa %} <span class="status">QA</span>{% endif %}</p>
   {% if dealer.latest_snapshot %}
   <p class="price">{{ dealer.latest_snapshot.inventory_count }} active vehicles</p>
   <p>Median: €{{ dealer.latest_snapshot.median_price|floatformat:0 }}</p>
