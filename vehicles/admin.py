@@ -35,6 +35,7 @@ class ListingAdmin(admin.ModelAdmin):
     list_display = (
         "source",
         "external_id",
+        "vin",
         "make",
         "model",
         "year",
@@ -44,11 +45,12 @@ class ListingAdmin(admin.ModelAdmin):
         "engine_family",
         "classification_method",
         "classification_manually_overridden",
+        "repeat_detection_method",
         "status",
         "last_seen_at",
     )
-    search_fields = ("external_id", "title", "make", "model", "generation", "engine_family", "source_url")
-    list_filter = ("source", "status", "generation", "facelift_status", "engine_family", "transmission_category", "classification_method", "classification_manually_overridden", "fuel", "year")
+    search_fields = ("external_id", "vin", "title", "make", "model", "generation", "engine_family", "source_url")
+    list_filter = ("source", "status", "repeat_detection_method", "generation", "facelift_status", "engine_family", "transmission_category", "classification_method", "classification_manually_overridden", "fuel", "year")
     readonly_fields = ("first_seen_at", "last_seen_at", "created_at", "updated_at")
     inlines = (ListingSnapshotInline,)
     date_hierarchy = "last_seen_at"
@@ -56,10 +58,10 @@ class ListingAdmin(admin.ModelAdmin):
 
 @admin.register(ListingSnapshot)
 class ListingSnapshotAdmin(admin.ModelAdmin):
-    list_display = ("listing", "source", "observed_at", "asking_price", "mileage", "import_run")
+    list_display = ("listing", "source", "observed_at", "asking_price", "mileage", "vin", "import_run")
     search_fields = ("listing__external_id", "listing__make", "listing__model")
     list_filter = ("listing__source", "observed_at")
-    readonly_fields = ("listing", "import_run", "observed_at", "asking_price", "mileage", "raw_data")
+    readonly_fields = ("listing", "import_run", "observed_at", "asking_price", "mileage", "vin", "raw_data")
     list_select_related = ("listing", "import_run")
     date_hierarchy = "observed_at"
 
@@ -144,7 +146,7 @@ class DealerInventorySnapshotAdmin(admin.ModelAdmin):
 
 @admin.register(DealerSnapshotListing)
 class DealerSnapshotListingAdmin(admin.ModelAdmin):
-    list_display = ("snapshot", "listing", "asking_price", "mileage", "status", "observed_at")
+    list_display = ("snapshot", "listing", "asking_price", "mileage", "vin", "status", "observed_at")
     readonly_fields = [field.name for field in DealerSnapshotListing._meta.fields]
 
     def has_add_permission(self, request):

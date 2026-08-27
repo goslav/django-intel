@@ -51,6 +51,9 @@ class Listing(models.Model):
         MANUAL = "manual", "Manual"
         UNKNOWN = "unknown", "Unknown"
 
+    class RepeatDetectionMethod(models.TextChoices):
+        VIN = "vin", "VIN match"
+
     source = models.CharField(max_length=50, db_index=True)
     external_id = models.CharField(max_length=255)
     source_url = models.URLField(blank=True)
@@ -62,6 +65,9 @@ class Listing(models.Model):
     mileage = models.PositiveIntegerField()
     fuel = models.CharField(max_length=50)
     transmission = models.CharField(max_length=50, blank=True)
+    vin = models.CharField(max_length=50, blank=True, db_index=True)
+    vin_checked_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    vin_lookup_error = models.CharField(max_length=255, blank=True)
     generation = models.CharField(max_length=100, blank=True)
     facelift_status = models.CharField(max_length=20, choices=FaceliftStatus.choices, default=FaceliftStatus.UNKNOWN)
     engine_family = models.CharField(max_length=100, blank=True)
@@ -80,6 +86,14 @@ class Listing(models.Model):
         default=Status.UNKNOWN,
         db_index=True,
     )
+    repeated_listing_of = models.ForeignKey(
+        "self", null=True, blank=True, on_delete=models.SET_NULL,
+        related_name="repeated_listings",
+    )
+    repeat_detection_method = models.CharField(
+        max_length=20, choices=RepeatDetectionMethod.choices, blank=True,
+    )
+    repeat_detected_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -151,6 +165,7 @@ class ListingSnapshot(models.Model):
     observed_at = models.DateTimeField(db_index=True)
     asking_price = models.DecimalField(max_digits=12, decimal_places=2)
     mileage = models.PositiveIntegerField()
+    vin = models.CharField(max_length=50, blank=True)
     raw_data = models.JSONField(null=True, blank=True)
 
     class Meta:
@@ -429,6 +444,7 @@ class DealerSnapshotListing(models.Model):
     listing = models.ForeignKey(Listing, on_delete=models.CASCADE, related_name="dealer_inventory_items")
     asking_price = models.DecimalField(max_digits=12, decimal_places=2)
     mileage = models.PositiveIntegerField()
+    vin = models.CharField(max_length=50, blank=True)
     status = models.CharField(max_length=10, choices=Listing.Status.choices, default=Listing.Status.ACTIVE)
     observed_at = models.DateTimeField(db_index=True)
     raw_data = models.JSONField(null=True, blank=True)

@@ -37,6 +37,7 @@ class DetailRecord:
     condition_new: bool
     status: str
     description: str
+    vin: str = ""
 
 
 def description_flags(description: str) -> list[str]:
@@ -50,6 +51,28 @@ def description_flags(description: str) -> list[str]:
     if re.search(r"\b(novo|nekorisceno)\s+vozilo\b|\bnova\s+vozila\b|\bvozilo\s+(je\s+)?nekorisceno\b", normalized):
         flags.append("New/unused vehicle wording")
     return flags
+
+
+def normalize_vin(value) -> str:
+    candidate = re.sub(r"[^A-Za-z0-9]", "", str(value or "")).upper()
+    if len(candidate) != 17 or re.search(r"[IOQ]", candidate):
+        return ""
+    return candidate
+
+
+def extract_vin(payload: dict) -> str:
+    """Return only a dedicated or explicitly labelled, structurally valid VIN."""
+    for key in ("vin", "VIN", "vehicleIdentificationNumber", "chassisNumber"):
+        vin = normalize_vin(payload.get(key))
+        if vin:
+            return vin
+    description = re.sub(r"<[^>]+>", " ", unescape(str(payload.get("description") or "")))
+    labelled = re.search(
+        r"(?:\bVIN\b|broj\s+[šs]asije)\s*(?:broj|br\.?|number|no\.?)?\s*[:#-]?\s*((?:[A-HJ-NPR-Z0-9][\s-]?){17})",
+        description,
+        flags=re.IGNORECASE,
+    )
+    return normalize_vin(labelled.group(1)) if labelled else ""
 
 
 def _text(value):
@@ -114,6 +137,7 @@ def normalize_detail(payload: dict, expected_id: str) -> DetailRecord:
         _source_date(payload.get("renewDate")), bool(payload.get("conditionNew")),
         _text(payload.get("status")),
         str(payload.get("description") or ""),
+        extract_vin(payload),
     )
 
 

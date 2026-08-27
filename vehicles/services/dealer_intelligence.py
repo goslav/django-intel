@@ -129,6 +129,7 @@ def _fetch_polovni_inventory(dealer_url: str) -> list[dict]:
                 "mileage": detail.mileage, "fuel": detail.fuel or "unknown", "transmission": detail.gearbox,
                 "asking_price": str(detail.price),
                 "published_at": detail.publish_date.isoformat() if detail.publish_date else None,
+                "vin": detail.vin,
                 "description_flags": description_flags(detail.description),
             })
         return records
@@ -158,6 +159,7 @@ def _normalize(record):
             "title": str(record.get("title", "")).strip(), "source_url": str(record.get("source_url", "")).strip(),
             "thumbnail_url": str(record.get("thumbnail_url", "")).strip(),
             "transmission": str(record.get("transmission", "")).strip(),
+            "vin": "".join(str(record.get("vin", "")).upper().split()),
             "published_at": parse_date(str(record["published_at"])) if record.get("published_at") else None,
             "description_flags": list(record.get("description_flags") or []),
             "raw": record,
@@ -183,15 +185,21 @@ def ingest_dealer_inventory(dealer: Dealer, records: list[dict], *, observed_at=
         listing, created = Listing.objects.get_or_create(
             source=dealer.source, external_id=item["external_id"],
             defaults={"first_seen_at": observed_at, "last_seen_at": observed_at, "status": Listing.Status.ACTIVE,
-                      **{key: item[key] for key in ("make", "model", "year", "mileage", "fuel", "title", "source_url", "thumbnail_url", "transmission", "published_at")}},
+                      **{key: item[key] for key in ("make", "model", "year", "mileage", "fuel", "title", "source_url", "thumbnail_url", "transmission", "published_at", "vin")}},
         )
-        for field in ("make", "model", "year", "mileage", "fuel", "title", "source_url", "thumbnail_url", "transmission", "published_at"):
+        for field in ("make", "model", "year", "mileage", "fuel", "title", "source_url", "thumbnail_url", "transmission", "published_at", "vin"):
             setattr(listing, field, item[field])
+        if item["vin"]:
+            original = Listing.objects.filter(vin=item["vin"]).exclude(pk=listing.pk).order_by("first_seen_at", "pk").first()
+            if original:
+                listing.repeated_listing_of = original.repeated_listing_of or original
+                listing.repeat_detection_method = Listing.RepeatDetectionMethod.VIN
+                listing.repeat_detected_at = observed_at
         listing.last_seen_at, listing.status = observed_at, Listing.Status.ACTIVE
         listing.save()
         listing_snapshot, _ = ListingSnapshot.objects.update_or_create(
             listing=listing, observed_at=observed_at,
-            defaults={"import_run": import_run, "asking_price": item["asking_price"], "mileage": item["mileage"], "raw_data": item["raw"]},
+            defaults={"import_run": import_run, "asking_price": item["asking_price"], "mileage": item["mileage"], "vin": item["vin"], "raw_data": item["raw"]},
         )
         membership, _ = DealerListingMembership.objects.get_or_create(
             dealer=dealer, listing=listing,
@@ -202,7 +210,7 @@ def ingest_dealer_inventory(dealer: Dealer, records: list[dict], *, observed_at=
         membership.save()
         DealerSnapshotListing.objects.create(
             snapshot=snapshot, listing=listing, asking_price=item["asking_price"],
-            mileage=item["mileage"], status=Listing.Status.ACTIVE,
+            mileage=item["mileage"], vin=item["vin"], status=Listing.Status.ACTIVE,
             observed_at=observed_at, raw_data=item["raw"],
         )
         present_listing_ids.add(listing.pk)

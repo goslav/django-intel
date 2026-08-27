@@ -4,7 +4,7 @@
 <p><a href="{% url 'dealers:snapshot_history' dealer.pk %}">← Snapshot history</a></p>
 <h1>{{ dealer.name }} snapshot</h1><p class="meta">Captured {{ snapshot.observed_at|date:"Y-m-d H:i" }}</p>
 <div class="stats"><div class="stat"><span>Captured inventory</span>{{ snapshot.inventory_count }}</div><div class="stat"><span>Median asking price</span>€{{ snapshot.median_price|dot_thousands }}</div><div class="stat"><span>Average ad age</span>{{ snapshot.average_active_days|floatformat:1 }}</div><div class="stat"><span>Disappeared since prior snapshot</span>{{ snapshot.disappeared_count }}</div></div>
-<section class="section"><h2>Captured listings</h2><div class="table-wrap"><table><thead><tr><th>Vehicle</th><th>Observed</th><th>Price</th><th>Mileage</th><th>Captured status</th></tr></thead><tbody>
-{% for item in page %}<tr><td><a href="{% url 'market:listing_detail' item.listing.pk %}">{{ item.listing.title|default:item.listing }}</a></td><td>{{ item.observed_at|date:"Y-m-d H:i" }}</td><td>€{{ item.asking_price|dot_thousands }}</td><td>{{ item.mileage|dot_thousands }} km</td><td>{{ item.get_status_display }}</td></tr>{% endfor %}
+<section class="section"><h2>Captured listings</h2><div class="table-wrap"><table><thead><tr><th>Vehicle</th><th>Captured VIN</th><th>Observed</th><th>Price</th><th>Mileage</th><th>Captured status</th></tr></thead><tbody>
+{% for item in page %}<tr><td><a href="{% url 'market:listing_detail' item.listing.pk %}">{{ item.listing.title|default:item.listing }}</a></td><td>{{ item.vin|default:"—" }}</td><td>{{ item.observed_at|date:"Y-m-d H:i" }}</td><td>€{{ item.asking_price|dot_thousands }}</td><td>{{ item.mileage|dot_thousands }} km</td><td>{{ item.get_status_display }}</td></tr>{% endfor %}
 </tbody></table></div></section>
 {% endblock %}
