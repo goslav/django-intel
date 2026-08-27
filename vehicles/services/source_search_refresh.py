@@ -41,6 +41,7 @@ def _upsert_detail(source_search, run, import_run, advertisement, observation, d
         "title": " ".join(part for part in (detail.brand, detail.model, detail.mark) if part),
         "make": detail.brand, "model": detail.model, "year": detail.year,
         "mileage": detail.mileage, "fuel": detail.fuel, "transmission": detail.gearbox,
+        "vin": "".join(detail.vin.upper().split()),
         "power_kw": detail.power_kw, "first_seen_at": observed_at,
         "last_seen_at": observed_at, "published_at": detail.publish_date,
         "status": Listing.Status.ACTIVE,
@@ -58,6 +59,13 @@ def _upsert_detail(source_search, run, import_run, advertisement, observation, d
                 updated = True
         if updated:
             listing.save()
+    if listing.vin:
+        original = Listing.objects.filter(vin=listing.vin).exclude(pk=listing.pk).order_by("first_seen_at", "pk").first()
+        if original:
+            listing.repeated_listing_of = original.repeated_listing_of or original
+            listing.repeat_detection_method = Listing.RepeatDetectionMethod.VIN
+            listing.repeat_detected_at = observed_at
+            listing.save(update_fields=("repeated_listing_of", "repeat_detection_method", "repeat_detected_at", "updated_at"))
     classify_listing(listing)
     latest_snapshot = listing.snapshots.order_by("-observed_at", "-pk").first()
     snapshot_created = not latest_snapshot or (
@@ -68,7 +76,7 @@ def _upsert_detail(source_search, run, import_run, advertisement, observation, d
             listing=listing, observed_at=observed_at,
             defaults={
             "import_run": import_run, "asking_price": detail.price,
-            "mileage": detail.mileage,
+            "mileage": detail.mileage, "vin": "".join(detail.vin.upper().split()),
             "raw_data": {
                 "mark": detail.mark, "engine_volume": detail.engine_volume,
                 "source_fuel": detail.source_fuel,
@@ -79,6 +87,7 @@ def _upsert_detail(source_search, run, import_run, advertisement, observation, d
                 "renew_date": detail.renew_date.isoformat() if detail.renew_date else "",
                 "condition_new": detail.condition_new,
                 "status": detail.status,
+                "vin": detail.vin,
             },
             },
         )

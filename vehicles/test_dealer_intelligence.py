@@ -63,6 +63,34 @@ class DealerIntelligenceTests(TestCase):
         )
         self.assertEqual(snapshot.inventory_items.get().listing.fuel, "unknown")
 
+    def test_vin_is_saved_in_listing_and_immutable_snapshots(self):
+        snapshot = ingest_dealer_inventory(
+            self.dealer,
+            [self.record("vin-ad", "10000", vin=" vf3mc bhxw ks123456 ")],
+            observed_at=parse_datetime("2026-07-11T10:00:00Z"),
+        )
+        item = snapshot.inventory_items.select_related("listing").get()
+        self.assertEqual(item.listing.vin, "VF3MCBHXWKS123456")
+        self.assertEqual(item.vin, "VF3MCBHXWKS123456")
+        self.assertEqual(item.listing.snapshots.get().vin, "VF3MCBHXWKS123456")
+
+    def test_new_external_id_with_known_vin_is_flagged_as_repeat(self):
+        first_time = parse_datetime("2026-07-11T10:00:00Z")
+        second_time = parse_datetime("2026-07-12T10:00:00Z")
+        ingest_dealer_inventory(
+            self.dealer, [self.record("original", "10000", vin="VF3MCBHXWKS123456")],
+            observed_at=first_time,
+        )
+        ingest_dealer_inventory(
+            self.dealer, [self.record("relisted", "10500", vin="vf3mcbhxwks123456")],
+            observed_at=second_time,
+        )
+        original = Listing.objects.get(external_id="original")
+        relisted = Listing.objects.get(external_id="relisted")
+        self.assertEqual(relisted.repeated_listing_of, original)
+        self.assertEqual(relisted.repeat_detection_method, Listing.RepeatDetectionMethod.VIN)
+        self.assertEqual(relisted.repeat_detected_at, second_time)
+
     def test_dashboard_uses_latest_snapshot(self):
         ingest_dealer_inventory(self.dealer, [self.record("a", "10000")], observed_at=parse_datetime("2026-07-11T10:00:00Z"))
         response = self.client.get(reverse("dealers:detail", args=(self.dealer.pk,)))
@@ -501,7 +529,7 @@ class SeedTrackedDealersCommandTests(TestCase):
         call_command("seed_tracked_dealers", stdout=StringIO())
         call_command("seed_tracked_dealers", stdout=StringIO())
 
-        self.assertEqual(Dealer.objects.filter(source="polovniautomobili").count(), 14)
+        self.assertEqual(Dealer.objects.filter(source="polovniautomobili").count(), 22)
         kia.refresh_from_db()
         self.assertEqual(kia.external_id, "Service-Maxx")
         self.assertEqual(kia.name, "KIA CENTAR BEOGRAD")
@@ -519,6 +547,25 @@ class SeedTrackedDealersCommandTests(TestCase):
         arena = Dealer.objects.get(external_id="arena-auto")
         self.assertTrue(arena.is_active)
         self.assertEqual(arena.inventory_type, Dealer.InventoryType.USED)
+        auto_system = Dealer.objects.get(external_id="autosystem")
+        self.assertEqual(auto_system.name, "Auto System")
+        self.assertTrue(auto_system.is_active)
+        self.assertEqual(auto_system.inventory_type, Dealer.InventoryType.USED)
+        autokomerc = Dealer.objects.get(external_id="autokomerc")
+        self.assertTrue(autokomerc.is_active)
+        self.assertEqual(autokomerc.inventory_type, Dealer.InventoryType.USED)
+        tree_m_auto = Dealer.objects.get(external_id="tree-m-auto")
+        self.assertTrue(tree_m_auto.is_active)
+        self.assertEqual(tree_m_auto.inventory_type, Dealer.InventoryType.USED)
+        fiba_auto = Dealer.objects.get(external_id="fiba-auto")
+        self.assertTrue(fiba_auto.is_active)
+        self.assertEqual(fiba_auto.inventory_type, Dealer.InventoryType.USED)
+        nbg_autos = Dealer.objects.get(external_id="nbg-autos")
+        self.assertTrue(nbg_autos.is_active)
+        self.assertEqual(nbg_autos.inventory_type, Dealer.InventoryType.USED)
+        balkan_car_sales = Dealer.objects.get(external_id="balkan-car-sales")
+        self.assertTrue(balkan_car_sales.is_active)
+        self.assertEqual(balkan_car_sales.inventory_type, Dealer.InventoryType.USED)
         british_motors = Dealer.objects.get(external_id="british-motors-polovna-vozila")
         self.assertTrue(british_motors.is_active)
         self.assertEqual(british_motors.inventory_type, Dealer.InventoryType.USED)
@@ -535,6 +582,12 @@ class SeedTrackedDealersCommandTests(TestCase):
         self.assertTrue(holliday.is_active)
         self.assertTrue(holliday.is_qa)
         self.assertEqual(holliday.inventory_type, Dealer.InventoryType.USED)
+        jp_company = Dealer.objects.get(external_id="jpcompany")
+        self.assertEqual(jp_company.name, "JP Company")
+        self.assertEqual(jp_company.inventory_type, Dealer.InventoryType.USED)
+        force_luxury = Dealer.objects.get(external_id="force-luxury-cars")
+        self.assertEqual(force_luxury.name, "Force Luxury Cars")
+        self.assertEqual(force_luxury.inventory_type, Dealer.InventoryType.USED)
 
 
 class CrossDealerModelComparisonTests(TestCase):

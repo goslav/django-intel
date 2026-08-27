@@ -17,7 +17,7 @@ from vehicles.sources.polovni_automobili.search_results import (
     CollectionError, canonicalize_public_ad_url, canonicalize_thumbnail_url, discover_advertisements,
     parse_search_page, public_ad_url_fallback, resolve_public_ad_url,
 )
-from vehicles.sources.polovni_automobili.detail_record import description_flags, normalize_detail, normalize_fuel
+from vehicles.sources.polovni_automobili.detail_record import description_flags, extract_vin, normalize_detail, normalize_fuel
 from vehicles.models import MarketProfile
 
 
@@ -109,6 +109,13 @@ class SearchDiscoveryTests(TestCase):
             description_flags("<p>Uslužna prodaja. Nekorišćeno vozilo.</p>"),
             ["Service/commission sale wording", "New/unused vehicle wording"],
         )
+
+    def test_vin_is_extracted_only_from_dedicated_or_labelled_values(self):
+        vin = "VF3MCBHXWKS123456"
+        self.assertEqual(extract_vin({"vin": vin.lower()}), vin)
+        self.assertEqual(extract_vin({"description": f"Broj šasije: {vin}"}), vin)
+        self.assertEqual(extract_vin({"description": f"Reference {vin}"}), "")
+        self.assertEqual(extract_vin({"description": "VIN: NOT-A-VALID-VIN"}), "")
         self.assertEqual(description_flags("Redovno održavan automobil."), [])
 
     def test_detail_without_published_price_is_identified_separately(self):

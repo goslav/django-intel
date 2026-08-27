@@ -6,6 +6,8 @@
 <p><a href="{% url 'market:listing_list' %}">← Back to marketplace listings</a></p>
 <section class="panel">
     <h1>{{ listing.title|default:listing.make }}{% if not listing.title %} {{ listing.model }}{% endif %}</h1>
+    {% if listing.vin %}<p>VIN: <strong>{{ listing.vin }}</strong></p>{% endif %}
+    {% if listing.repeated_listing_of_id %}<p class="status">Repeated advertisement detected by VIN. <a href="{% url 'market:listing_detail' listing.repeated_listing_of_id %}">Open the original observed listing</a>.</p>{% endif %}
     {% if listing.latest_price != None %}<div class="price">€{{ listing.latest_price|price_sr }} asking price</div>{% else %}<div class="price">No observed price</div>{% endif %}
     <p>{{ listing.year }} · {{ listing.mileage }} km · {{ listing.fuel }}{% if listing.transmission %} · {{ listing.transmission }}{% endif %}</p>
     <p class="meta">Source: {{ listing.source }} · Published {% if listing.published_at %}{{ listing.published_at|date:"j M Y" }} ({{ listing.days_on_market }} days on market){% else %}unknown{% endif %} · Last seen {{ listing.last_seen_at|date:"j M Y, H:i" }}</p>
